@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <include domain="database" path="keyling.db" />
+    <include domain="file" path="datastore/keyling.preferences_pb" />
+    <include domain="file" path="mug.bin" />
+</full-backup-content>
