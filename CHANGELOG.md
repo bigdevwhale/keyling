@@ -6,6 +6,12 @@ line "<!-- tg", then 2-4 short lines in Russian for users (what is new, what is 
 then close it like any HTML comment. The release notes carry it, and the chat bot posts those lines.
 -->
 
+## [1.0.1] - 2026-11-10
+
+- A new icon: a block of keycaps, with the dormouse peeking out from under a lifted one.
+
+<!-- tg skip -->
+
 ## [1.0.0] - 2026-11-10
 
 - A writing desk with a mechanical keyboard: log words (or the total from your editor), and letters fall onto the keys for the resident under the space bar.

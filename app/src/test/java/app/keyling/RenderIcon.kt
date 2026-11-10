@@ -13,14 +13,18 @@ import java.io.File
 class RenderIcon {
     private fun icon(): Buf {
         val b = Buf(54, 54); val set = CapSets.of("retro")
-        // the dark slot under the cap, with a warm glow
-        b.rect(11, 30, 32, 13, rgb(0x1c100c)); b.rect(11, 30, 32, 1, rgb(0x4a3a30))
-        for (y in 31 until 43) for (x in 12 until 42) { val d = kotlin.math.hypot((x - 27f) / 16f, (y - 44f) / 12f); if (d < 1) b.p(x, y, rgb(0x6e401a), (1 - d) * .8f) }
-        val pet = Buf(54, 54); Critters.draw(pet, "space", 27f, 47f, .78f, 1.3f, false, false)
-        b.blit(pet, 0, 0, clipY = 42)
-        b.rect(10, 41, 34, 2, rgb(0x3a3940)); b.rect(10, 43, 34, 1, rgb(0x1a1a20))
-        // the lifted keycap above
-        b.rect(12, 22, 30, 2, 0, .35f); Board.drawCap(b, 11, 5, 32, 17, CapPal(set.a, set.la), "", 0f)
+        val beige = CapPal(set.a, set.la); val grey = CapPal(set.m, set.lm); val red = CapPal(set.x, set.lx)
+        // a 2×2 block of keys; the bottom-right one is lifted and the dormouse peeks out from under it
+        Board.drawCap(b, 10, 8, 16, 15, red, "", 0f)
+        Board.drawCap(b, 28, 8, 16, 15, beige, "", 0f)
+        Board.drawCap(b, 10, 30, 16, 15, grey, "", 0f)
+        b.rect(28, 30, 16, 15, rgb(0x1c100c))
+        for (y in 31 until 45) for (x in 28 until 44) { val d = kotlin.math.hypot((x - 36f) / 9f, (y - 46f) / 11f); if (d < 1) b.p(x, y, rgb(0x8e5622), (1 - d) * .9f) }
+        val pet = Buf(54, 54); Critters.draw(pet, "space", 36f, 50f, .44f, 1.3f, false, false)
+        b.blit(pet, 0, 0, clipY = 44)
+        b.rect(27, 44, 18, 1, rgb(0x3a3940))
+        b.rect(29, 29, 14, 2, 0, .35f)
+        Board.drawCap(b, 28, 25, 16, 10, beige, "", 0f)
         return b
     }
 
