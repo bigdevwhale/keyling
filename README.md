@@ -4,7 +4,7 @@
 
 # Keyling
 
-### Little creatures under your keys eat the words you write
+### A keyboard where someone lives
 
 *Writing a novel, stories or a thesis? Log what you write, and the residents of your keyboard eat the words, grow and furnish your desk. A year goal, streaks, records and cards to share. Free, no ads, no account, works offline.*
 
