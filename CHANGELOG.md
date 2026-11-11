@@ -6,7 +6,7 @@ line "<!-- tg", then 2-4 short lines in Russian for users (what is new, what is 
 then close it like any HTML comment. The release notes carry it, and the chat bot posts those lines.
 -->
 
-## [Unreleased]
+## [1.1.0] - 2026-11-11
 
 - All seven residents are drawn anew, and each one grows through four looks: baby, youngster, grown and ancient. Spacelet gathers letter tiles, the heron gets a monocle, the frog a crown, the snail a second suitcase.
 - Residents blink and hop as they chew in their new looks, on the desk and at home under their keys.
