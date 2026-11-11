@@ -219,5 +219,4 @@ object Food {
     }
     /** 0 baby · 1 youngster · 2 grown · 3 ancient. */
     fun stageIndex(level: Int) = when (level) { in 0..2 -> 0; in 3..5 -> 1; in 6..8 -> 2; else -> 3 }
-    fun growth(level: Int) = .88f + stageIndex(level) * .1f
 }

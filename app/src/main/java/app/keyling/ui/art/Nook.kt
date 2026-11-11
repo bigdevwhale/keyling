@@ -13,7 +13,7 @@ object Nook {
     private val WIDE = mapOf("space" to 132, "enter" to 104, "bksp" to 100, "caps" to 100, "tab" to 100, "shift" to 104, "esc" to 96)
 
     /** [lift] 0..1 raises the cap; [t] is seconds for breathing and little idle things. */
-    fun render(b: Buf, id: String, open: Boolean, set: CapSet, t: Float, lift: Float, mouth: Boolean = false, grow: Float = 1f) {
+    fun render(b: Buf, id: String, open: Boolean, set: CapSet, t: Float, lift: Float, mouth: Boolean = false, stage: Int = 0) {
         b.clear()
         val pl = intArrayOf(shade(set.plate, -.4f), set.plate, shade(set.plate, .15f))
         for (y in 0 until H) for (x in 0 until W) b.p(x, y, pick(pl, .5f - hypot(x - W / 2f, y - 30f) / 220f, x, y))
@@ -26,7 +26,7 @@ object Nook {
         // the resident
         val blink = (t % 3.7f) < .14f
         val cx = W / 2f; val cy = hy + 18f
-        if (open) { val tmp = Buf(W, H); Critters.draw(tmp, id, cx, (hy + hh - 4).toFloat(), 1.05f * grow, t, blink, mouth || (id == "caps" && (t % 2f) < .9f)); b.blit(tmp, 0, 0, clipY = hy + hh - 4) }
+        if (open) { val tmp = Buf(W, H); Critters.draw(tmp, id, stage, cx, (hy + hh - 4).toFloat(), Critters.BIG, t, blink, mouth || (id == "caps" && (t % 2f) < .9f)); b.blit(tmp, 0, 0, clipY = hy + hh - 4) }
         else if ((t % 2.4f) < .25f) { // something rustles in the dark
             b.p((cx - 4).roundToInt(), cy.roundToInt(), rgb(0xffd36b)); b.p((cx + 3).roundToInt(), cy.roundToInt(), rgb(0xffd36b))
         }

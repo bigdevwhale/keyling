@@ -18,7 +18,7 @@ class Scene {
     var now = 0f
     var dust = false
     var pet = "space"
-    var grow = 1f
+    var stage = 0
     var steam = true
     var candle = false
     val crumbs = ArrayList<Crumb>()
@@ -26,7 +26,7 @@ class Scene {
     val puffs = ArrayList<Puff>()
     val hearts = ArrayList<Spark>()
     val zs = ArrayList<Spark>()
-    private val tmp = Buf(72, 52)
+    private val tmp = Buf(72, 40)
     private val LID = -36
     private var chew = 0f; private var blink = 0f; private var puffT = 0f
     var onEat: (() -> Unit)? = null
@@ -117,7 +117,7 @@ class Scene {
             out.blit(caps.getValue(s).up, hx, hy + LID)
             for (mx in intArrayOf(hx + 9, hx + hw - 12)) { for (y in hy + LID + 14 until hy + 12) { out.p(mx, y, rgb(0xe8c890)); out.p(mx + 1, y, rgb(0xc8a060)); out.p(mx + 2, y, rgb(0x8a6a3a)) }
                 out.rect(mx - 1, hy + LID + 12, 5, 3, rgb(0xb83a2a)); out.rect(mx, hy + LID + 12, 2, 1, rgb(0xe86a4a)) }
-            tmp.clear(); Critters.draw(tmp, pet, tmp.w / 2f, tmp.h - 2f, .74f * grow, now, blink > 0, chew > 0)
+            tmp.clear(); Critters.draw(tmp, pet, stage, tmp.w / 2f, tmp.h - 2f, Critters.DESK, now, blink > 0, chew > 0)
             out.blit(tmp, (petX - tmp.w / 2f).roundToInt(), hy + 14 - tmp.h, clipY = hy + 12)
             out.rect(hx - 1, hy + 12, hw + 2, 2, shade(plate, .3f)); out.rect(hx - 1, hy + 14, hw + 2, 1, shade(plate, -.3f))
         } else out.blit(caps.getValue(s).up, hx, hy)

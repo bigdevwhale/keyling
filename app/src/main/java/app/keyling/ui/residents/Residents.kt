@@ -98,7 +98,7 @@ fun ResidentsScreen(st: Stats, s: Settings, nav: Nav) {
         while (true) withFrameNanos { ns -> if (last == 0L) last = ns; val dt = (ns - last) / 1e9f
             if (dt >= 1 / 30f) { last = ns; t += dt; lift = (lift + dt * 2.2f).coerceAtMost(1f); if (talk > 0) talk -= dt
                 Nook.keyboard(mapBuf, caps, set, homes, sel, t); mapBmp.setPixels(mapBuf.d, 0, mapBuf.w, 0, 0, mapBuf.w, mapBuf.h)
-                Nook.render(nookBuf, sel, open, set, t, if (open) easeOut(lift) else lift * .25f, talk > 0, Food.growth(level))
+                Nook.render(nookBuf, sel, open, set, t, if (open) easeOut(lift) else lift * .25f, talk > 0, Food.stageIndex(level))
                 nookBmp.setPixels(nookBuf.d, 0, nookBuf.w, 0, 0, nookBuf.w, nookBuf.h); tick++ } }
     }
     fun feed() { Food.action(sel)?.let { (a, _) -> nav.homeSheet = a; nav.tab = 0 } }
@@ -132,7 +132,8 @@ fun ResidentsScreen(st: Stats, s: Settings, nav: Nav) {
             for (x in Residents.all) { val o = x.open(st)
                 Keycap(Modifier.weight(1f).height(62.dp), accent = x.id == sel, down = x.id == sel, onClick = { sel = x.id }) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        val pb = remember(x.id, o) { app.keyling.ui.art.portrait(x.id, o, 40, 34, .6f) }
+                        val stage = Food.stageIndex(x.level(st))
+                        val pb = remember(x.id, o, stage) { app.keyling.ui.art.portrait(x.id, o, stage, 40, 34, app.keyling.ui.art.Critters.SMALL) }
                         Pixels(pb, Modifier.width(34.dp))
                         Text(if (o) "${x.level(st)}" else "?", style = T.tiny, color = if (x.id == sel) p.xLeg else p.kLeg)
                     }

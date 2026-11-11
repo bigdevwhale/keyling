@@ -105,7 +105,7 @@ object Share {
     /** A resident at home, with its name, temper and level. */
     fun resident(ctx: Context, r: Resident, st: Stats, s: Settings): Card {
         val f = Fonts(ctx); val (bmp, c) = base(0xFF2A1A1C.toInt(), 0xFF120C0E.toInt())
-        val nook = Buf(Nook.W, Nook.H); Nook.render(nook, r.id, true, CapSets.of(s.caps), 1.3f, 1f)
+        val nook = Buf(Nook.W, Nook.H); Nook.render(nook, r.id, true, CapSets.of(s.caps), 1.3f, 1f, stage = app.keyling.domain.Food.stageIndex(r.level(st)))
         val rr = RectF(60f, 130f, W - 60f, 130f + (W - 120f) * Nook.H / Nook.W)
         c.save(); c.clipPath(android.graphics.Path().apply { addRoundRect(rr, 36f, 36f, android.graphics.Path.Direction.CW) }); c.pixels(nook, 60, 130, W - 120); c.restore()
         val y = rr.bottom + 120; val p = PERSONAS.getValue(r.id)

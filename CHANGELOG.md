@@ -6,6 +6,18 @@ line "<!-- tg", then 2-4 short lines in Russian for users (what is new, what is 
 then close it like any HTML comment. The release notes carry it, and the chat bot posts those lines.
 -->
 
+## [Unreleased]
+
+- All seven residents are drawn anew, and each one grows through four looks: baby, youngster, grown and ancient. Spacelet gathers letter tiles, the heron gets a monocle, the frog a crown, the snail a second suitcase.
+- Residents blink and hop as they chew in their new looks, on the desk and at home under their keys.
+- A new icon: Spacelet with its letter tile, on its own.
+
+<!-- tg
+Все семь жителей нарисованы заново
+Теперь каждый растёт в четырёх обликах: малыш, подросток, взрослый, древний
+Новая иконка: Пробельчик с буквой
+-->
+
 ## [1.0.1] - 2026-11-10
 
 - A new icon: a block of keycaps, with the dormouse peeking out from under a lifted one.

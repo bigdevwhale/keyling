@@ -119,7 +119,7 @@ fun HomeScreen(st: Stats, s: Settings, nav: Nav) {
     fun say(text: String) { bubble = text; bubbleAt = System.currentTimeMillis() }
 
     scene.sprites = sprites; scene.offsets = drag?.let { (id, o) -> s.pos + (id to o) } ?: s.pos; scene.lifted = drag?.first
-    scene.grow = app.keyling.domain.Food.growth(app.keyling.domain.Residents.of(s.pet).level(st))
+    scene.stage = app.keyling.domain.Food.stageIndex(app.keyling.domain.Residents.of(s.pet).level(st))
     scene.dust = st.dusty; scene.pet = s.pet; scene.steam = s.mug != "thermo"; scene.candle = s.mascot == "candle"
     val stNow by androidx.compose.runtime.rememberUpdatedState(st)
     LaunchedEffect(Unit) {

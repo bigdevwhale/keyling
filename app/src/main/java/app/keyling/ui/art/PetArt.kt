@@ -119,12 +119,12 @@ fun Buf.pet(cx: Float, cy: Float, rx: Float, ry: Float, look: Look, silh: Boolea
     }
 }
 
-/** A resident's portrait in its nook, for cards and sheets. */
-fun portrait(id: String, open: Boolean, w: Int = 64, h: Int = 52, s: Float = 1f): Buf {
+/** A resident's portrait in its nook at growth [stage], for cards and sheets; [size] is the sprite cut (Critters.BIG …). */
+fun portrait(id: String, open: Boolean, stage: Int = 0, w: Int = 64, h: Int = 52, size: Int = Critters.BIG): Buf {
     val b = Buf(w, h)
     val bg = rgbs(0x140c0e, 0x1e1316, 0x2a1a1c, 0x3e2618)
     for (y in 0 until h) for (x in 0 until w) b.p(x, y, pick(bg, 1 - kotlin.math.hypot((x - w / 2f) / (w * .62f), (y - h - 4f) / (h * .65f)), x, y))
-    if (open) Critters.draw(b, id, w / 2f, h - 7f, s, 1.3f, false, false) else Critters.silhouette(b, id, w / 2f, h - 7f, s)
+    if (open) Critters.draw(b, id, stage, w / 2f, h - 7f, size, 0f, false, false) else Critters.silhouette(b, id, stage, w / 2f, h - 7f, size)
     b.rect(0, h - 7, w, 7, rgb(0x2a2026)); b.rect(0, h - 7, w, 1, rgb(0x463840))
     return b
 }

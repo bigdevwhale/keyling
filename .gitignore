@@ -12,3 +12,4 @@
 *.keystore
 *.jks
 /design
+__pycache__/
