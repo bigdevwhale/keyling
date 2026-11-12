@@ -120,7 +120,7 @@ fun Pill(text: String, bg: Color, fg: Color, modifier: Modifier = Modifier, styl
 fun Pixels(buf: Buf, modifier: Modifier = Modifier, version: Any? = null) {
     val bmp = remember(buf, version) { buf.toBitmap().asImageBitmap() }
     Canvas(modifier.fillMaxWidth().aspectRatio(buf.w.toFloat() / buf.h)) {
-        drawImage(bmp, IntOffset.Zero, IntSize(buf.w, buf.h), IntOffset.Zero, IntSize(size.width.roundToInt(), size.height.roundToInt()), filterQuality = FilterQuality.None)
+        drawImage(bmp, IntOffset.Zero, IntSize(buf.pw, buf.ph), IntOffset.Zero, IntSize(size.width.roundToInt(), size.height.roundToInt()), filterQuality = FilterQuality.None)
     }
 }
 

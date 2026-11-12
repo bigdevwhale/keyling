@@ -37,7 +37,8 @@ class AppContainer(context: Context) {
     val dao = db.dao()
     val settings = SettingsStore(app)
     val sound = Sound(app)
-    val art = ArtCache()
+    /** Desk drawings, kept on disk too; named by when this version was installed, so an update draws them anew. */
+    val art = ArtCache(java.io.File(app.cacheDir, "art"), runCatching { app.packageManager.getPackageInfo(app.packageName, 0).lastUpdateTime }.getOrDefault(0L))
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     /** Little notes for the screens: «+12 буквиц», an achievement… */
     val news = MutableSharedFlow<String>(extraBufferCapacity = 8)
@@ -114,12 +115,16 @@ class KeylingApp : Application() {
         super.onCreate()
         Lang.ru = resources.configuration.locales[0].language == "ru"
         Glyphs.face = ResourcesCompat.getFont(this, R.font.press_start)
+        Glyphs.smoothFace = ResourcesCompat.getFont(this, R.font.inter_semibold)
         container = AppContainer(this)
-        // Build the desk while the window is still opening, so it's there on the first frame.
+        // Build the desk while the window is still opening, so it's there on the first frame: its three pieces
+        // side by side, each on its own core. The desk screen waits for these rather than building them again.
         container.scope.launch(Dispatchers.Default) { runCatching {
-            val s = container.settings.now(); val set = CapSets.of(s.caps)
-            container.art.bg(Decor(s.desk, s.mug, s.plant, s.lamp, s.mascot), set, Mug.load(this@KeylingApp))
-            container.art.caps(set, container.stats().activeDays) } }
+            val s = container.settings.now(); val set = CapSets.of(s.caps); val decor = Decor(s.desk, s.mug, s.plant, s.lamp, s.mascot)
+            val custom = Mug.load(this@KeylingApp)
+            launch { runCatching { container.art.bg(decor, set, custom) } }
+            launch { runCatching { container.art.sprites(decor, custom) } }
+            launch { runCatching { container.art.caps(set, container.stats().activeDays) } } } }
     }
 }
 

@@ -15,20 +15,22 @@ object Nook {
     /** [lift] 0..1 raises the cap; [t] is seconds for breathing and little idle things. */
     fun render(b: Buf, id: String, open: Boolean, set: CapSet, t: Float, lift: Float, mouth: Boolean = false, stage: Int = 0) {
         b.clear()
+        val fine = b.s > 1
+        fun tone(r: IntArray, v: Float, x: Int, y: Int) = if (fine) lerp(r, v) else pick(r, v, x, y)
         val pl = intArrayOf(shade(set.plate, -.4f), set.plate, shade(set.plate, .15f))
-        for (y in 0 until H) for (x in 0 until W) b.p(x, y, pick(pl, .5f - hypot(x - W / 2f, y - 30f) / 220f, x, y))
+        b.paint(0, 0, W, H) { fx, fy, X, Y -> tone(pl, .5f - hypot(fx - W / 2f, fy - 30f) / 220f, X, Y) }
         val hw = WIDE[id] ?: 100; val hx = (W - hw) / 2; val hy = 36; val hh = 50
         // the hole and its warm light
         val glow = if (open) rgbs(0x0e080a, 0x1c100c, 0x2e1a10, 0x4a2a14, 0x6e401a, 0x96592a) else rgbs(0x08060a, 0x0e0a10, 0x141018, 0x1a1420)
-        for (y in hy until hy + hh) for (x in hx until hx + hw) b.p(x, y, pick(glow, (1 - hypot((x - (hx + hw / 2f)) / (hw * .6f), (y - (hy + hh + 2f)) / (hh * 1.1f))) * 1.05f, x, y))
+        b.paint(hx, hy, hw, hh) { fx, fy, X, Y -> tone(glow, (1 - hypot((fx - (hx + hw / 2f)) / (hw * .6f), (fy - (hy + hh + 2f)) / (hh * 1.1f))) * 1.05f, X, Y) }
         b.rect(hx, hy, hw, 1, shade(set.plate, .3f))
         if (open) furnish(b, id, hx, hy, hw, hh, t)
         // the resident
         val blink = (t % 3.7f) < .14f
         val cx = W / 2f; val cy = hy + 18f
-        if (open) { val tmp = Buf(W, H); Critters.draw(tmp, id, stage, cx, (hy + hh - 4).toFloat(), Critters.BIG, t, blink, mouth || (id == "caps" && (t % 2f) < .9f)); b.blit(tmp, 0, 0, clipY = hy + hh - 4) }
+        if (open) { val tmp = Buf(W, H, b.s); Critters.draw(tmp, id, stage, cx, (hy + hh - 4).toFloat(), Critters.cut(Critters.BIG, b.s), t, blink, mouth || (id == "caps" && (t % 2f) < .9f)); b.blit(tmp, 0, 0, clipY = hy + hh - 4) }
         else if ((t % 2.4f) < .25f) { // something rustles in the dark
-            b.p((cx - 4).roundToInt(), cy.roundToInt(), rgb(0xffd36b)); b.p((cx + 3).roundToInt(), cy.roundToInt(), rgb(0xffd36b))
+            for (ex in floatArrayOf(cx - 3.5f, cx + 3.5f)) b.blob(ex, cy + .5f, .7f, .7f, rgbs(0xe8a838, 0xffd36b, 0xfff0b0), null)
         }
         b.rect(hx - 1, hy + hh - 4, hw + 2, 2, shade(set.plate, .3f)); b.rect(hx - 1, hy + hh - 2, hw + 2, 1, shade(set.plate, -.3f))
         // the keycap above, raised by [lift]
@@ -53,7 +55,7 @@ object Nook {
             }
             "enter" -> { // a feast for every finished chapter
                 b.rect(hx + 6, hy + 4, hw - 12, 7, rgb(0x2f4f8f)); b.rect(hx + 6, hy + 4, hw - 12, 1, rgb(0x6a8ad0))
-                b.blit(Glyphs.text("¶", rgb(0xfff3e0)), hx + hw / 2 - 3, hy + 3)
+                if (b.s == 1) b.blit(Glyphs.text("¶", rgb(0xfff3e0)), hx + hw / 2 - 3, hy + 3) else b.blit(Glyphs.text("¶", rgb(0xfff3e0), 7f, b.s, smooth = true), hx + hw / 2 - 2, hy + 3)
                 for (i in 0 until hw - 12 step 6) { b.p(hx + 6 + i, hy + 11, rgb(0x2f4f8f)); b.p(hx + 7 + i, hy + 12, rgb(0x2f4f8f)) }
                 val cx = hx + 10; b.rect(cx, floor - 6, 12, 5, rgb(0xf6dcc0)); b.rect(cx, floor - 6, 12, 1, rgb(0xffffff)); b.rect(cx, floor - 3, 12, 1, rgb(0xe88aa0)); b.rect(cx - 1, floor - 1, 14, 1, rgb(0xd8d8e0))
                 for (k in 0 until 3) { b.p(cx + 2 + k * 4, floor - 8, rgb(0xf0f0f0)); b.p(cx + 2 + k * 4, floor - 7, rgb(0xf0f0f0)); if (sin(t * 9 + k) > -.3f) b.p(cx + 2 + k * 4, floor - 9, rgb(0xffc040)) }
@@ -90,24 +92,30 @@ object Nook {
         }
     }
 
-    /** The keyboard with every resident's home key marked, for the residents map. */
+    /** The map's rows: the desk's keyboard from the top of its case to the bottom, in art pixels. */
+    const val MAP_TOP = Desk.CASE_TOP; const val MAP_H = Desk.CASE_BOTTOM - Desk.CASE_TOP
+
+    private var base: Buf? = null; private var baseKey = ""
+
+    /**
+     * The keyboard with every resident's home key marked, for the residents map: the same keyboard as on the
+     * desk ([Desk.keyboard], drawn once per set and kept), with the same caps; [b] is [MAP_H] art rows tall.
+     */
     fun keyboard(b: Buf, caps: Map<Key, Board.Caps>, set: CapSet, homes: Map<String, Boolean>, sel: String?, t: Float) {
-        b.clear()
-        val y0 = Board.KY - 14
-        val c = set.case; val cr = intArrayOf(shade(c, -.35f), c, shade(c, .2f))
-        for (y in 0 until b.h) for (x in 0 until b.w) b.p(x, y, pick(cr, .6f - y / (b.h * 2f), x, y))
-        val pl = intArrayOf(shade(set.plate, -.4f), set.plate, shade(set.plate, .12f))
-        for (y in 12 until b.h - 8) for (x in 7 until 253) b.p(x, y, pick(pl, .5f, x, y))
+        val key = "${set.id}|${b.w}|${b.h}|${b.s}"
+        val bb = base?.takeIf { baseKey == key } ?: Buf(b.w, b.h, b.s).also { Desk.keyboard(it, set, MAP_TOP); base = it; baseKey = key }
+        b.copyFrom(bb)
+        val y0 = MAP_TOP
         for (k in Board.keys) {
             val home = k.id?.takeIf { homes.containsKey(it) }
             val lifted = home != null && home == sel
-            val cap = caps.getValue(k)
+            val cap = caps[k] ?: continue
             val y = k.y - y0 + (if (lifted) -4 else 0)
             if (lifted) b.rect(k.x, k.y - y0, k.w, k.h, rgb(0x96592a))
             b.blit(cap.up, k.x, y)
             if (home != null) { val open = homes.getValue(home)
                 val glow = if (open) rgb(0xffd36b) else rgb(0x8a7a9a); val pulse = if (lifted) 1f else .55f + .45f * sin(t * 3 + k.x)
-                b.rect(k.x + k.w / 2 - 2, k.y - y0 + k.h + 1, 4, 1, glow, pulse) }
+                b.blob(k.x + k.w / 2f, k.y - y0 + k.h + 1.5f, 2.2f, .7f, intArrayOf(glow), null, alpha = pulse) }
         }
     }
 }

@@ -9,8 +9,14 @@ import kotlin.math.roundToInt
  * into small sprites by tools/cut.py. Here they come to life: blinking, and hopping as they chew.
  */
 object Critters {
-    /** Sprite heights cut for each place: the nook and cards, the desk, the small list portraits. */
-    const val BIG = 48; const val DESK = 34; const val SMALL = 26
+    /**
+     * Sprite heights cut for each place, in device pixels: the nook and cards, the desk, the small list
+     * portraits, and the desk drawn finer ([DESK] at three device pixels per art pixel, see Desk.S).
+     */
+    const val BIG = 48; const val DESK = 34; const val SMALL = 26; const val DESK_FINE = 102
+
+    /** The cut of [size] for a buffer with [s] device pixels per art pixel: the same size on screen, [s] times finer. */
+    fun cut(size: Int, s: Int) = size * s
     private val STAGES = arrayOf("baby", "young", "adult", "ancient")
 
     /** One cut sprite: its pixels open-eyed and shut-eyed. */
@@ -64,26 +70,28 @@ object Critters {
 
     /**
      * Draws resident [id] at growth [stage] (0 baby … 3 ancient) with its feet on row [by], centred on [cx].
-     * [size] picks the cut ([BIG], [DESK], [SMALL]); [t] is seconds, for the hop while [mouth] is open.
+     * [size] picks the cut ([BIG], [DESK], [SMALL], [DESK_FINE]); [t] is seconds, for the hop while [mouth] is open.
+     * The sprite's pixels are [b]'s device pixels: a fine buffer wants a cut as many times taller.
      */
     fun draw(b: Buf, id: String, stage: Int, cx: Float, by: Float, size: Int, t: Float, blink: Boolean, mouth: Boolean) {
         val sp = sprite(id, stage, size) ?: return
         val src = if (blink) sp.shut else sp.open
         // Chewing (or singing) makes it hop a pixel, the whole of it at once: bending a sprite this small
         // a pixel at a time shows as a seam across the body.
-        val hop = if (mouth && (t * 7).toInt() % 2 == 0) -1 else 0
-        val x0 = (cx - sp.w / 2f).roundToInt(); val y0 = by.roundToInt() - sp.h + 1 + hop
-        for (y in 0 until sp.h) for (x in 0 until sp.w) { val c = src[y * sp.w + x]; if (c ushr 24 != 0) b.p(x0 + x, y0 + y, c) }
+        val hop = if (mouth && (t * 7).toInt() % 2 == 0) -b.s else 0
+        val x0 = (cx * b.s - sp.w / 2f).roundToInt(); val y0 = (by.roundToInt() + 1) * b.s - sp.h + hop
+        for (y in 0 until sp.h) for (x in 0 until sp.w) { val c = src[y * sp.w + x]; if (c ushr 24 != 0) b.px(x0 + x, y0 + y, c) }
     }
 
     /** The same creature as a dark shape with a question mark, for residents who haven't moved in. */
     fun silhouette(b: Buf, id: String, stage: Int, cx: Float, by: Float, size: Int) {
         val sp = sprite(id, stage, size) ?: return
         val dark = rgbs(0x1c1418, 0x281e24, 0x33282e)
-        val x0 = (cx - sp.w / 2f).roundToInt(); val y0 = by.roundToInt() - sp.h + 1
+        val x0 = (cx * b.s - sp.w / 2f).roundToInt(); val y0 = (by.roundToInt() + 1) * b.s - sp.h
         var top = sp.h
         for (y in 0 until sp.h) for (x in 0 until sp.w) { val c = sp.open[y * sp.w + x]; if (c ushr 24 == 0) continue
-            if (y < top) top = y; b.p(x0 + x, y0 + y, dark[(lum(c) / 255f * 2.99f).toInt()]) }
-        b.blit(Glyphs.text("?", rgb(0x6a5560)), (cx - 3).roundToInt(), y0 + (top + sp.h) / 2 - 6)
+            if (y < top) top = y; b.px(x0 + x, y0 + y, dark[(lum(c) / 255f * 2.99f).toInt()]) }
+        val q = Glyphs.text("?", rgb(0x6a5560), if (b.s > 1) 11f else 8f, b.s, smooth = b.s > 1); val (q0, q1) = Glyphs.inkSpan(q)
+        b.blitPx(q, (cx * b.s).roundToInt() - (q0 + q1) / 2, y0 + (top + sp.h) / 2 - (if (b.s > 1) 9 else 6) * b.s)
     }
 }

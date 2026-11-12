@@ -54,7 +54,7 @@ object Share {
     }
     private fun Canvas.pixels(buf: Buf, x: Int, y: Int, w: Int) {
         val bmp = buf.toBitmap(); val h = w * buf.h / buf.w
-        drawBitmap(bmp, Rect(0, 0, buf.w, buf.h), Rect(x, y, x + w, y + h), Paint().apply { isFilterBitmap = false }); bmp.recycle()
+        drawBitmap(bmp, Rect(0, 0, buf.pw, buf.ph), Rect(x, y, x + w, y + h), Paint().apply { isFilterBitmap = false }); bmp.recycle()
     }
     private fun Canvas.text(s: String, x: Float, y: Float, size: Float, face: Typeface, color: Int, center: Boolean = false) =
         drawText(s, x, y, Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = size; typeface = face; this.color = color; if (center) textAlign = Paint.Align.CENTER })
@@ -84,9 +84,9 @@ object Share {
         val f = Fonts(ctx); val (bmp, c) = base(0xFF1B2440.toInt(), 0xFF0E1220.toInt())
         // the desk, cropped to the keyboard and the nook
         val set = CapSets.of(s.caps); val decor = Decor(s.desk, s.mug, s.plant, s.lamp, s.mascot)
-        val bg = Desk.background(decor, set, Mug.load(ctx)); val frame = Buf(Desk.W, Desk.H)
-        Scene().apply { pet = s.pet; steam = false; render(frame, bg, Board.buildCaps(set, st.activeDays), set.plate, 0) }
-        val crop = Buf(Desk.W, 150); for (y in 0 until 150) System.arraycopy(frame.d, (y + 270) * Desk.W, crop.d, y * Desk.W, Desk.W)
+        val bg = Desk.background(decor, set, Mug.load(ctx)); val frame = Buf(Desk.W, Desk.H, Desk.S)
+        Scene().apply { pet = s.pet; steam = false; render(frame, bg, Board.buildCaps(set, st.activeDays, Desk.S), set.plate, 0) }
+        val crop = Buf(Desk.W, 150, Desk.S); System.arraycopy(frame.d, 270 * Desk.S * frame.pw, crop.d, 0, crop.d.size)
         val rr = RectF(60f, 520f, W - 60f, 520f + (W - 120f) * 150 / Desk.W)
         c.save(); c.clipPath(android.graphics.Path().apply { addRoundRect(rr, 36f, 36f, android.graphics.Path.Direction.CW) }); c.pixels(crop, 60, 520, W - 120); c.restore()
         c.text(tr("Мой ${st.year} год в Клавишке", "My ${st.year} in Keyling"), 80f, 150f, 46f, f.loraI, 0xFFC8D2F0.toInt())
@@ -105,7 +105,7 @@ object Share {
     /** A resident at home, with its name, temper and level. */
     fun resident(ctx: Context, r: Resident, st: Stats, s: Settings): Card {
         val f = Fonts(ctx); val (bmp, c) = base(0xFF2A1A1C.toInt(), 0xFF120C0E.toInt())
-        val nook = Buf(Nook.W, Nook.H); Nook.render(nook, r.id, true, CapSets.of(s.caps), 1.3f, 1f, stage = app.keyling.domain.Food.stageIndex(r.level(st)))
+        val nook = Buf(Nook.W, Nook.H, Desk.S); Nook.render(nook, r.id, true, CapSets.of(s.caps), 1.3f, 1f, stage = app.keyling.domain.Food.stageIndex(r.level(st)))
         val rr = RectF(60f, 130f, W - 60f, 130f + (W - 120f) * Nook.H / Nook.W)
         c.save(); c.clipPath(android.graphics.Path().apply { addRoundRect(rr, 36f, 36f, android.graphics.Path.Direction.CW) }); c.pixels(nook, 60, 130, W - 120); c.restore()
         val y = rr.bottom + 120; val p = PERSONAS.getValue(r.id)

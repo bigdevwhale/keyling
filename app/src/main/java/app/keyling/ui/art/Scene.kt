@@ -27,6 +27,7 @@ class Scene {
     val hearts = ArrayList<Spark>()
     val zs = ArrayList<Spark>()
     private val tmp = Buf(72, 40)
+    private val tmpFine = Buf(72, 40, Desk.S)
     private val LID = -36
     private var chew = 0f; private var blink = 0f; private var puffT = 0f
     var onEat: (() -> Unit)? = null
@@ -67,17 +68,56 @@ class Scene {
         for (z in zs) { z.t += dt; z.y -= 7 * dt; z.x += sin(z.t * 3) * .25f }; zs.removeAll { it.t >= 2.6f }
         if (!steam) puffs.clear() else {
             puffT -= dt
-            if (puffT <= 0) { puffT = .16f + Random.nextFloat() * .12f
-                puffs += Puff(Desk.SLOT_MUG.first + 9 + Random.nextFloat() * 10, Desk.SLOT_MUG.second + 2f, 3.2f + Random.nextFloat() * 1.6f, Random.nextFloat() * 6.28f, 2 + Random.nextFloat() * 2.5f, 5 + Random.nextFloat() * 3) }
+            // steam rises from the middle of the tea (the mug's hot spot); it follows the mug when moved
+            val mug = sprites.firstOrNull { it.id == "mug" }; val hot = mug?.hot
+            if (puffT <= 0 && mug != null && hot != null) { puffT = .16f + Random.nextFloat() * .12f
+                puffs += Puff(mug.x + hot.first - 5 + Random.nextFloat() * 10, mug.y + hot.second, 3.2f + Random.nextFloat() * 1.6f, Random.nextFloat() * 6.28f, 2 + Random.nextFloat() * 2.5f, 5 + Random.nextFloat() * 3) }
             for (p in puffs) { p.t += dt; p.y -= p.sp * dt * (1 - p.t / p.life * .5f) }; puffs.removeAll { it.t >= it.life }
         }
     }
 
+    /** A falling letter centred on (x, y), with a dark rim; on a fine buffer in a plain face, its rim thin and round. */
     private fun Buf.letter(ch: String, x: Float, y: Float, col: Int) {
-        val dark = Glyphs.text(ch, rgb(0x2a1620)); val g = Glyphs.text(ch, col)
-        val ix = x.roundToInt() - 4; val iy = y.roundToInt() - 5
-        for ((dx, dy) in listOf(-1 to 0, 1 to 0, 0 to -1, 0 to 1)) blit(dark, ix + dx, iy + dy)
-        blit(g, ix, iy)
+        if (s == 1) {
+            val dark = Glyphs.text(ch, rgb(0x2a1620)); val g = Glyphs.text(ch, col)
+            val ix = x.roundToInt() - 4; val iy = y.roundToInt() - 5
+            for ((dx, dy) in listOf(-1 to 0, 1 to 0, 0 to -1, 0 to 1)) blit(dark, ix + dx, iy + dy)
+            blit(g, ix, iy); return
+        }
+        val dark = Glyphs.text(ch, rgb(0x2a1620), 9f, s, smooth = true); val g = Glyphs.text(ch, col, 9f, s, smooth = true)
+        val (g0, g1) = Glyphs.inkSpan(g)
+        val ix = (x * s).roundToInt() - (g0 + g1) / 2; val iy = ((y - 7.6f) * s).roundToInt()
+        val r = (s + 1) / 2 + 1
+        for (dy in -r..r) for (dx in -r..r) if (dx * dx + dy * dy in 1..r * r + 1) blitPx(dark, ix + dx, iy + dy)
+        blitPx(g, ix, iy)
+    }
+
+    /** A heart about [k] art pixels wide with its top-left at (x, y), smooth on a fine buffer. */
+    private fun Buf.heart(x: Int, y: Int, a: Float) {
+        if (s == 1) {
+            for ((i, j) in listOf(1 to 0, 3 to 0, 0 to 1, 1 to 1, 2 to 1, 3 to 1, 4 to 1, 1 to 2, 2 to 2, 3 to 2, 2 to 3)) p(x + i, y + j, rgb(0xff6f8f), a)
+            p(x + 1, y + 1, rgb(0xffd0dc), a); return
+        }
+        val w = 5f * s; val h = 4.6f * s
+        for (j in 0 until h.toInt() + 1) for (i in 0 until w.toInt() + 1) {
+            val u = ((i + .5f) / w - .5f) * 2.4f; val v = (1 - (j + .5f) / h) * 2.3f - 1.05f
+            val f = (u * u + v * v - 1).let { it * it * it } - u * u * v * v * v
+            if (f <= 0) px(x * s + i, y * s + j, if (hypot(u + .55f, v - .45f) < .32f) rgb(0xffd0dc) else rgb(0xff6f8f), a)
+        }
+    }
+
+    /** A typo bug at (x, y) facing [d] (±1), its legs at step [leg]. */
+    private fun Buf.bug(x: Int, y: Int, d: Int, leg: Int) {
+        if (s == 1) {
+            rect(x - 2, y - 1, 4, 2, rgb(0x5a1e2a)); rect(x - 1, y - 2, 2, 1, rgb(0xa8475a)); p(x - 1, y - 1, rgb(0xd07080)); p(x + d * 2, y - 1, rgb(0x1a0e14))
+            p(x - 2 + leg, y + 1, rgb(0x1a0e14)); p(x + 1 - leg, y + 1, rgb(0x1a0e14)); return
+        }
+        val ink = rgb(0x1a0e14)
+        for (k in 0..2) { val lx = x - 1.6f + k * 1.6f + (if ((k + leg) % 2 == 0) .35f else -.35f)
+            for (t in 0 until s) { px(((lx) * s).roundToInt() + t / 2, ((y + .2f) * s).roundToInt() + t, ink) } }
+        blob(x + d * 1.9f, y - .9f, 1f, .9f, rgbs(0x2a0e18, 0x3a1624), ink)
+        blob(x - d * .3f, y - .8f, 2.3f, 1.5f, rgbs(0x5a1e2a, 0xa8475a, 0xd07080), ink)
+        px(((x + d * 2.2f) * s).roundToInt(), ((y - 1.2f) * s).roundToInt(), rgb(0xffe0e8))
     }
 
     /** Paints this moment over the still background [bg] into [out]. */
@@ -86,27 +126,38 @@ class Scene {
     var lifted: String? = null
     fun at(id: String): Pair<Int, Int> = offsets[id] ?: (0 to 0)
 
+    /** Keycaps missing from [caps] (still being built) are left out: the desk shows without them for a moment. */
     fun render(out: Buf, bg: Buf, caps: Map<Key, Board.Caps>, plate: Int, pages: Int) {
         out.copyFrom(bg)
         for (sp in sprites.sortedBy { it.y + it.buf.h + at(it.id).second }) { val (dx, dy) = at(sp.id)
             if (sp.id == lifted) { out.rect(sp.x + dx + 3, sp.y + dy + 5, sp.buf.w - 2, sp.buf.h - 2, 0, .25f); out.blit(sp.buf, sp.x + dx, sp.y + dy - 3) }
             else out.blit(sp.buf, sp.x + dx, sp.y + dy) }
-        val (mdx, mdy) = at("mug")
+        val (mdx, mdy) = at("mug"); val u = out.s
+        // steam: soft puffs, a device pixel at a time
         if (steam) for (p in puffs) { val k = p.t / p.life
             val x = p.x + mdx + sin(p.ph + p.t * 1.3f) * p.amp * (.3f + k) + k * 4; val y = p.y + mdy
-            val r = 1.5f + k * 5.5f; val a = (if (k < .15f) k / .15f else 1f) * (1 - k) * .6f; val rr = ceil(r).toInt()
-            for (j in -rr..rr) for (i in -rr..rr) { val d = (i * i + j * j) / (r * r); if (d > 1) continue
-                val xx = (x + i).roundToInt(); val yy = (y + j).roundToInt()
-                if (bay(xx, yy) < a * 1.5f * (1 - d * .6f)) out.p(xx, yy, if (d < .3f) rgb(0xfffaf0) else rgb(0xe8e2d8), .6f + .35f * (1 - d)) } }
-        if (candle) { val (mx, my) = Desk.SLOT_MASCOT; val (cdx, cdy) = at("mascot"); val fx = mx + 21 + cdx; val fy = my + 8 + cdy; val fl = sin(now * 11) * .6f + sin(now * 27) * .4f
-            out.blob(fx.toFloat(), fy - 1f, 9f, 9f, rgbs(0xffb040, 0xffd070), null, alpha = .18f)
-            for (j in 0 until 6) { val w = if (j < 2) 1 else if (j < 4) 2 else 1
-                for (i in -w + 1 until w) out.p(fx + i + (if (j > 3) fl.roundToInt() else 0), fy - j, if (j < 2) rgb(0xfff6d0) else if (j < 4) rgb(0xffc040) else rgb(0xff7a20)) } }
-        for (k in Board.keys) { if (k === Board.space) continue; val c = caps.getValue(k); out.blit(if (k.press > 0) c.dn else c.up, k.x, k.y) }
+            val r = 1.5f + k * 5.5f; val a = (if (k < .15f) k / .15f else 1f) * (1 - k) * .6f; val rr = ceil(r * u).toInt()
+            for (j in -rr..rr) for (i in -rr..rr) { val d = (i * i + j * j) / (r * r * u * u); if (d > 1) continue
+                val xx = (x * u).roundToInt() + i; val yy = (y * u).roundToInt() + j
+                if (u == 1) { if (bay(xx, yy) < a * 1.5f * (1 - d * .6f)) out.px(xx, yy, if (d < .3f) rgb(0xfffaf0) else rgb(0xe8e2d8), .6f + .35f * (1 - d)) }
+                else out.px(xx, yy, if (d < .3f) rgb(0xfffaf0) else rgb(0xe8e2d8), a * (1 - d) * .9f) } }
+        // the candle's flame stands on its wick (the mascot's hot spot)
+        val cs = if (candle) sprites.firstOrNull { it.id == "mascot" } else null; val wick = cs?.hot
+        if (cs != null && wick != null) { val (cdx, cdy) = at("mascot"); val fx = cs.x + cdx + wick.first; val fy = cs.y + cdy + wick.second
+            val fl = sin(now * 11) * .6f + sin(now * 27) * .4f
+            // a warm glow fading out from the flame
+            val gr = 10f * u; val gx = fx * u; val gy = (fy - 3f) * u
+            for (j in (gy - gr).toInt()..(gy + gr).toInt()) for (i in (gx - gr).toInt()..(gx + gr).toInt()) {
+                val d = hypot(i + .5f - gx, j + .5f - gy) / gr; if (d < 1) out.px(i, j, rgb(0xffc060), (1 - d) * (1 - d) * (.22f + fl * .03f)) }
+            // a teardrop: round at the bottom, its tip swaying
+            val fh = 6.5f; val fw = 1.6f
+            for (j in 0 until (fh * u).toInt()) { val t = j / (fh * u); val yy = ((fy - .5f) * u).roundToInt() - j
+                val half = fw * u * (if (t < .35f) kotlin.math.sqrt(t / .35f) else (1 - t) / .65f) ; val sway = fl * t * t * u
+                for (i in -half.toInt() - 1..half.toInt() + 1) { val dx = abs(i + .5f - sway) / half.coerceAtLeast(.5f); if (dx > 1) continue
+                    out.px((fx * u).roundToInt() + i, yy, when { t < .3f && dx < .55f -> rgb(0xfff6d0); t < .6f -> rgb(0xffc040); else -> rgb(0xff7a20) }, if (dx > .8f) .6f else 1f) } } }
+        for (k in Board.keys) { if (k === Board.space) continue; val c = caps[k] ?: continue; out.blit(if (k.press > 0) c.dn else c.up, k.x, k.y) }
         val leg = ((now * 1000 / 110).toInt()) % 2
-        for (b in bugs) { val x = b.x.roundToInt(); val y = b.y.roundToInt(); val d = if (b.v > 0) 1 else -1
-            out.rect(x - 2, y - 1, 4, 2, rgb(0x5a1e2a)); out.rect(x - 1, y - 2, 2, 1, rgb(0xa8475a)); out.p(x - 1, y - 1, rgb(0xd07080)); out.p(x + d * 2, y - 1, rgb(0x1a0e14))
-            out.p(x - 2 + leg, y + 1, rgb(0x1a0e14)); out.p(x + 1 - leg, y + 1, rgb(0x1a0e14)) }
+        for (b in bugs) out.bug(b.x.roundToInt(), b.y.roundToInt(), if (b.v > 0) 1 else -1, leg)
         val s = Board.space; val hx = s.x; val hy = s.y; val hw = s.w
         for (x in hx + 10 until hx + hw - 10) { val y = hy + 1 + (abs(sin((x - hx - 10f) / ((hw - 20f) / 3f) * PI.toFloat())) * 1.5f).roundToInt(); out.p(x, y, rgb(0x1a1210))
             if ((x - hx) % 7 == 0) { val col = rgbs(0xffd36b, 0xff8fae, 0x8fe8d8)[((x - hx) / 7) % 3]; out.p(x, y + 1, col)
@@ -114,31 +165,32 @@ class Scene {
         if (!dust) {
             val breathe = sin(now / .6f) * .6f
             out.rect(hx + 3, hy - 1, hw - 6, 3, 0, .4f)
-            out.blit(caps.getValue(s).up, hx, hy + LID)
+            caps[s]?.let { out.blit(it.up, hx, hy + LID) }
             for (mx in intArrayOf(hx + 9, hx + hw - 12)) { for (y in hy + LID + 14 until hy + 12) { out.p(mx, y, rgb(0xe8c890)); out.p(mx + 1, y, rgb(0xc8a060)); out.p(mx + 2, y, rgb(0x8a6a3a)) }
                 out.rect(mx - 1, hy + LID + 12, 5, 3, rgb(0xb83a2a)); out.rect(mx, hy + LID + 12, 2, 1, rgb(0xe86a4a)) }
-            tmp.clear(); Critters.draw(tmp, pet, stage, tmp.w / 2f, tmp.h - 2f, Critters.DESK, now, blink > 0, chew > 0)
+            val tmp = if (out.s == Desk.S) tmpFine else tmp
+            tmp.clear(); Critters.draw(tmp, pet, stage, tmp.w / 2f, tmp.h - 2f, if (tmp.s == Desk.S) Critters.DESK_FINE else Critters.DESK, now, blink > 0, chew > 0)
             out.blit(tmp, (petX - tmp.w / 2f).roundToInt(), hy + 14 - tmp.h, clipY = hy + 12)
             out.rect(hx - 1, hy + 12, hw + 2, 2, shade(plate, .3f)); out.rect(hx - 1, hy + 14, hw + 2, 1, shade(plate, -.3f))
-        } else out.blit(caps.getValue(s).up, hx, hy)
+        } else caps[s]?.let { out.blit(it.up, hx, hy) }
         if (dust) {
-            for (y in Board.KY - 4 until 398) for (x in 7 until 253) { val h = ((x * 73856093) xor (y * 19349663)).toLong() and 0xFFFFFFFFL
-                if (h % 11 == 0L) out.p(x, y, if (h % 3 != 0L) rgb(0xcfc6ba) else rgb(0x9a9188), .75f) }
-            val wx = 252; val wy = 316
-            for (i in 0 until 20) { out.p(wx - i, wy + (i * .9f).roundToInt(), rgb(0xe8e0d8), .6f); out.p(wx - i, wy, rgb(0xe8e0d8), .6f); out.p(wx, wy + i, rgb(0xe8e0d8), .6f) }
-            for (z in zs) out.blit(Glyphs.text("z", rgb(0xfbf3e4)), z.x.roundToInt(), z.y.roundToInt(), alpha = (1 - z.t / 2.6f).coerceIn(0f, 1f))
+            // specks a device pixel each, and a cobweb in the corner
+            for (y in (Board.KY - 4) * u until 398 * u) for (x in 7 * u until 253 * u) { val h = ((x * 73856093) xor (y * 19349663)).toLong() and 0xFFFFFFFFL
+                if (h % (11L * u * u) == 0L) out.px(x, y, if (h % 3 != 0L) rgb(0xcfc6ba) else rgb(0x9a9188), .75f) }
+            val wx = 252 * u; val wy = 316 * u
+            for (i in 0 until 20 * u) { out.px(wx - i, wy + (i * .9f).roundToInt(), rgb(0xe8e0d8), .6f); out.px(wx - i, wy, rgb(0xe8e0d8), .6f); out.px(wx, wy + i, rgb(0xe8e0d8), .6f) }
+            for (z in zs) out.blit(Glyphs.text("z", rgb(0xfbf3e4), if (u == 1) 8f else 7f, u, smooth = u > 1), z.x.roundToInt(), z.y.roundToInt(), alpha = (1 - z.t / 2.6f).coerceIn(0f, 1f))
         }
         for (c in crumbs) out.letter(c.ch, c.x, c.y - c.hop, if (c.ph == 2) rgb(0xffd08a) else rgb(0xfbf3e4))
-        for (h in hearts) { if (h.t < 0) continue; val x = h.x.roundToInt(); val y = h.y.roundToInt(); val a = (1 - h.t).coerceIn(0f, 1f)
-            for ((i, j) in listOf(1 to 0, 3 to 0, 0 to 1, 1 to 1, 2 to 1, 3 to 1, 4 to 1, 1 to 2, 2 to 2, 3 to 2, 2 to 3)) out.p(x + i, y + j, rgb(0xff6f8f), a)
-            out.p(x + 1, y + 1, rgb(0xffd0dc), a) }
+        for (h in hearts) { if (h.t < 0) continue; out.heart(h.x.roundToInt(), h.y.roundToInt(), (1 - h.t).coerceIn(0f, 1f)) }
     }
 
     // ---- hit tests in art pixels ----
     /** The desk thing under (x, y), top-most first, by its painted pixels. */
     fun spriteAt(x: Float, y: Float): Desk.Sprite? = sprites.sortedByDescending { it.y + it.buf.h + at(it.id).second }.firstOrNull { sp ->
         val (dx, dy) = at(sp.id); val ix = (x - sp.x - dx).toInt(); val iy = (y - sp.y - dy).toInt()
-        ix in 0 until sp.buf.w && iy in 0 until sp.buf.h && (sp.buf.d[iy * sp.buf.w + ix] ushr 24) > 160 }
+        val u = sp.buf.s; val px = ((x - sp.x - dx) * u).toInt(); val py = ((y - sp.y - dy) * u).toInt()
+        ix in 0 until sp.buf.w && iy in 0 until sp.buf.h && (sp.buf.getPx(px, py) ushr 24) > 160 }
     fun bugAt(x: Float, y: Float): Bug? = bugs.firstOrNull { hypot(it.x - x, it.y - y) < 8 }
     fun petAt(x: Float, y: Float) = !dust && hypot(petX - x, (petY - y) * 1.2f) < 16
     fun keyAt(x: Float, y: Float): Key? = Board.keys.firstOrNull { it !== Board.space && x >= it.x && x < it.x + it.w && y >= it.y && y < it.y + it.h }

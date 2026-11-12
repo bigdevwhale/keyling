@@ -122,9 +122,9 @@ fun WorkshopScreen(st: Stats, s: Settings, nav: Nav) {
     val set = CapSets.of(capsId)
     val bgK = c.art.bgKey(decor, set, custom); val capsK = c.art.capsKey(set, st.activeDays)
     val bg by androidx.compose.runtime.produceState<Buf?>(c.art.peekBg(bgK), bgK) { value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { c.art.bg(decor, set, custom) } }
-    val caps by androidx.compose.runtime.produceState<Map<app.keyling.ui.art.Key, Board.Caps>?>(c.art.peekCaps(capsK), capsK) { value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { c.art.caps(set, st.activeDays) } }
+    val caps by androidx.compose.runtime.produceState<Map<app.keyling.ui.art.Key, Board.Caps>?>(c.art.peekCaps(capsK) ?: c.art.peekAnyCaps(set), capsK) { value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { c.art.caps(set, st.activeDays) } }
     val scene = remember { Scene() }
-    val frame = remember { Buf(Desk.W, Desk.H) }; val bmp = remember { Bitmap.createBitmap(Desk.W, Desk.H, Bitmap.Config.ARGB_8888) }; val img = remember(bmp) { bmp.asImageBitmap() }
+    val frame = remember { Buf(Desk.W, Desk.H, Desk.S) }; val bmp = remember { Bitmap.createBitmap(frame.pw, frame.ph, Bitmap.Config.ARGB_8888) }; val img = remember(bmp) { bmp.asImageBitmap() }
     var tick by remember { mutableIntStateOf(0) }
     val spK = c.art.spritesKey(decor, custom)
     val sprites by androidx.compose.runtime.produceState(c.art.peekSprites(spK) ?: emptyList(), spK) { value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { c.art.sprites(decor, custom) } }
@@ -132,7 +132,7 @@ fun WorkshopScreen(st: Stats, s: Settings, nav: Nav) {
     scene.pet = s.pet; scene.steam = decor.mug != "thermo"; scene.candle = decor.mascot == "candle"
     LaunchedEffect(Unit) { var last = 0L
         while (true) withFrameNanos { ns -> if (last == 0L) last = ns; val dt = (ns - last) / 1e9f
-            if (dt >= 1 / 30f) { last = ns; scene.step(dt); val b = bg; val k = caps; if (b != null && k != null) { scene.render(frame, b, k, set.plate, 60); bmp.setPixels(frame.d, 0, Desk.W, 0, 0, Desk.W, Desk.H) }; tick++ } } }
+            if (dt >= 1 / 30f) { last = ns; scene.step(dt); val b = bg; val k = caps; if (b != null) { scene.render(frame, b, k ?: emptyMap(), set.plate, 60); bmp.setPixels(frame.d, 0, frame.pw, 0, 0, frame.pw, frame.ph) }; tick++ } } }
 
     fun has(key: String, price: Int) = price == 0 || key in s.owned
     fun pick(cat: String, id: String, price: Int, name: String) {
@@ -158,7 +158,7 @@ fun WorkshopScreen(st: Stats, s: Settings, nav: Nav) {
                 val y0 = if (tab == 1) 302 else 58; val h = if (tab == 1) 118 else 196
                 Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).border(1.dp, p.line, RoundedCornerShape(18.dp))) {
                     Canvas(Modifier.fillMaxWidth().aspectRatio(Desk.W / h.toFloat())) { @Suppress("UNUSED_EXPRESSION") tick
-                        drawImage(img, IntOffset(0, y0), IntSize(Desk.W, h), IntOffset.Zero, IntSize(size.width.roundToInt(), size.height.roundToInt()), filterQuality = FilterQuality.None) }
+                        drawImage(img, IntOffset(0, y0 * Desk.S), IntSize(frame.pw, h * Desk.S), IntOffset.Zero, IntSize(size.width.roundToInt(), size.height.roundToInt()), filterQuality = FilterQuality.None) }
                     Text(trial?.let { tr("Примерка: ", "Trying: ") + it.name } ?: if (tab == 1) tr("Ваша клавиатура", "Your keyboard") else tr("Ваш стол", "Your desk"),
                         style = T.smallB, color = if (trial != null) Color(0xFF2A1A05) else p.ink,
                         modifier = Modifier.padding(10.dp).clip(RoundedCornerShape(20.dp)).background(if (trial != null) p.warm else p.surface.copy(alpha = .9f)).padding(horizontal = 10.dp, vertical = 5.dp))
@@ -208,7 +208,7 @@ fun WorkshopScreen(st: Stats, s: Settings, nav: Nav) {
                     for (row in CapSets.all.chunked(2)) {
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             for (cs in row) { val name = SET_NAMES.getValue(cs.id).let { tr(it.first, it.second) }; val on = s.caps == cs.id; val trying = trial?.cat == "caps" && trial?.id == cs.id
-                                val pv = remember(cs.id) { Board.preview(cs) }
+                                val pv = remember(cs.id) { Board.preview(cs, Desk.S) }
                                 Column(Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).background(p.surface).border(2.dp, if (trying) p.warm else if (on) p.acc else p.line, RoundedCornerShape(16.dp))
                                     .clickable { c.sound.click(Click.sw); pick("caps", cs.id, cs.price, tr("набор «$name»", "the $name set")) }.padding(8.dp)) {
                                     Box(Modifier.clip(RoundedCornerShape(9.dp))) { Pixels(pv) }

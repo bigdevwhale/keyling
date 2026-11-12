@@ -119,12 +119,16 @@ fun Buf.pet(cx: Float, cy: Float, rx: Float, ry: Float, look: Look, silh: Boolea
     }
 }
 
-/** A resident's portrait in its nook at growth [stage], for cards and sheets; [size] is the sprite cut (Critters.BIG …). */
-fun portrait(id: String, open: Boolean, stage: Int = 0, w: Int = 64, h: Int = 52, size: Int = Critters.BIG): Buf {
-    val b = Buf(w, h)
+/**
+ * A resident's portrait in its nook at growth [stage], for cards and sheets; [size] is the sprite cut (Critters.BIG …)
+ * as it would be at one device pixel per art pixel: drawn [s] times finer, with the cut [s] times bigger.
+ */
+fun portrait(id: String, open: Boolean, stage: Int = 0, w: Int = 64, h: Int = 52, size: Int = Critters.BIG, s: Int = Desk.S): Buf {
+    val b = Buf(w, h, s)
     val bg = rgbs(0x140c0e, 0x1e1316, 0x2a1a1c, 0x3e2618)
-    for (y in 0 until h) for (x in 0 until w) b.p(x, y, pick(bg, 1 - kotlin.math.hypot((x - w / 2f) / (w * .62f), (y - h - 4f) / (h * .65f)), x, y))
-    if (open) Critters.draw(b, id, stage, w / 2f, h - 7f, size, 0f, false, false) else Critters.silhouette(b, id, stage, w / 2f, h - 7f, size)
+    b.paint(0, 0, w, h) { fx, fy, X, Y -> val v = 1 - kotlin.math.hypot((fx - w / 2f) / (w * .62f), (fy - h - 4f) / (h * .65f)); if (s > 1) lerp(bg, v) else pick(bg, v, X, Y) }
+    val cut = Critters.cut(size, s)
+    if (open) Critters.draw(b, id, stage, w / 2f, h - 7f, cut, 0f, false, false) else Critters.silhouette(b, id, stage, w / 2f, h - 7f, cut)
     b.rect(0, h - 7, w, 7, rgb(0x2a2026)); b.rect(0, h - 7, w, 1, rgb(0x463840))
     return b
 }

@@ -5,7 +5,7 @@ Taken from Songling's tools/cut.py.
 
     python tools/cut.py [id ...]
 
-Each sprite comes in three sizes (SIZES, named by height): the nook and cards, the desk, the small list
+Each sprite comes in several sizes (SIZES, named by height): the nook and cards, the desk, the small list
 portraits. Writes app/src/main/resources/pets/<id>_<stage>_<height>.bin (gzip: int w, int h, w*h ARGB ints, w*h lid
 bytes, int eye count, 4 ints per eye box; big-endian), a PNG of each to art/pets/ to look at, and a debug
 sheet with the eyes marked to app/build/art/sheets.png.
@@ -28,7 +28,9 @@ DEBUG = os.path.join(ROOT, "app", "build", "art", "sheets.png")
 SPECIES = ["space", "enter", "bksp", "caps", "tab", "shift", "esc"]
 STAGES = ["baby", "young", "adult", "ancient"]
 # height -> (canvas width, largest figure width, largest figure height); a sprite stands on its bottom row.
-SIZES = {48: (64, 62, 44), 34: (56, 54, 33), 26: (40, 38, 25)}
+SIZES = {48: (64, 62, 44), 34: (56, 54, 33), 26: (40, 38, 25),
+         # the same three drawn at three device pixels per art pixel (Desk.S): three times finer
+         144: (192, 186, 132), 102: (168, 162, 99), 78: (120, 114, 75)}
 # How tall each stage stands against the ancient one: the sheets grow them more than a key's hollow has room for.
 GROWTH = [0.66, 0.78, 0.9, 1.0]
 
@@ -401,6 +403,8 @@ def cut(sp, im, solid, crops, size, sheet, row):
         with open(os.path.join(OUT, name + ".bin"), "wb") as f:
             f.write(gzip.compress(data, mtime=0))
         Image.fromarray(sprite, "RGBA").save(os.path.join(LOOK, name + ".png"))
+        if size > 48:
+            continue
         # Debug: the sprite at 3x with its lids tinted and eyes boxed.
         big = Image.fromarray(sprite, "RGBA").resize((cw * 3, size * 3), Image.NEAREST)
         at = (col * 64 * 3 + (64 * 3 - cw * 3) // 2, row * 48 * 3 + 48 * 3 - size * 3)

@@ -58,6 +58,7 @@ import app.keyling.ui.Shareable
 import app.keyling.ui.art.Board
 import app.keyling.ui.art.Buf
 import app.keyling.ui.art.CapSets
+import app.keyling.ui.art.Desk
 import app.keyling.ui.art.Nook
 import app.keyling.ui.components.Bar
 import app.keyling.ui.components.Card
@@ -83,12 +84,15 @@ fun ResidentsScreen(st: Stats, s: Settings, nav: Nav) {
     var sel by remember { mutableStateOf(nav.resident ?: s.pet) }
     LaunchedEffect(nav.resident) { nav.resident?.let { sel = it; nav.resident = null } }
     val set = CapSets.of(s.caps)
-    val caps = remember(set) { c.art.caps(set, st.activeDays) }
+    // the same keycaps as on the desk; the ones already built show until these are
+    val capsK = c.art.capsKey(set, st.activeDays)
+    val caps by androidx.compose.runtime.produceState(c.art.peekCaps(capsK) ?: c.art.peekAnyCaps(set) ?: emptyMap(), capsK) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { c.art.caps(set, st.activeDays) } }
     val homes = Residents.all.associate { it.id to it.open(st) }
     val r = Residents.of(sel); val open = r.open(st); val persona = PERSONAS.getValue(sel)
     val level = r.level(st); val onDesk = s.pet == sel
-    val mapBuf = remember { Buf(260, 104) }; val mapBmp = remember { Bitmap.createBitmap(260, 104, Bitmap.Config.ARGB_8888) }
-    val nookBuf = remember { Buf(Nook.W, Nook.H) }; val nookBmp = remember { Bitmap.createBitmap(Nook.W, Nook.H, Bitmap.Config.ARGB_8888) }
+    val mapBuf = remember { Buf(Desk.W, Nook.MAP_H, Desk.S) }; val mapBmp = remember { Bitmap.createBitmap(mapBuf.pw, mapBuf.ph, Bitmap.Config.ARGB_8888) }
+    val nookBuf = remember { Buf(Nook.W, Nook.H, Desk.S) }; val nookBmp = remember { Bitmap.createBitmap(nookBuf.pw, nookBuf.ph, Bitmap.Config.ARGB_8888) }
     var tick by remember { mutableIntStateOf(0) }
     var lift by remember(sel) { mutableFloatStateOf(0f) }
     var line by remember(sel) { mutableStateOf(persona.line(0)) }
@@ -97,9 +101,9 @@ fun ResidentsScreen(st: Stats, s: Settings, nav: Nav) {
         var last = 0L; var t = 0f
         while (true) withFrameNanos { ns -> if (last == 0L) last = ns; val dt = (ns - last) / 1e9f
             if (dt >= 1 / 30f) { last = ns; t += dt; lift = (lift + dt * 2.2f).coerceAtMost(1f); if (talk > 0) talk -= dt
-                Nook.keyboard(mapBuf, caps, set, homes, sel, t); mapBmp.setPixels(mapBuf.d, 0, mapBuf.w, 0, 0, mapBuf.w, mapBuf.h)
+                Nook.keyboard(mapBuf, caps, set, homes, sel, t); mapBmp.setPixels(mapBuf.d, 0, mapBuf.pw, 0, 0, mapBuf.pw, mapBuf.ph)
                 Nook.render(nookBuf, sel, open, set, t, if (open) easeOut(lift) else lift * .25f, talk > 0, Food.stageIndex(level))
-                nookBmp.setPixels(nookBuf.d, 0, nookBuf.w, 0, 0, nookBuf.w, nookBuf.h); tick++ } }
+                nookBmp.setPixels(nookBuf.d, 0, nookBuf.pw, 0, 0, nookBuf.pw, nookBuf.ph); tick++ } }
     }
     fun feed() { Food.action(sel)?.let { (a, _) -> nav.homeSheet = a; nav.tab = 0 } }
 
@@ -113,13 +117,13 @@ fun ResidentsScreen(st: Stats, s: Settings, nav: Nav) {
         Gap(14.dp)
         // the map
         val mapImg = remember(mapBmp) { mapBmp.asImageBitmap() }
-        Canvas(Modifier.fillMaxWidth().aspectRatio(260 / 104f).clip(RoundedCornerShape(14.dp)).pointerInput(Unit) {
-            detectTapGestures { o -> val k = size.width / 260f; val x = o.x / k; val y = o.y / k + Board.KY - 14
+        Canvas(Modifier.fillMaxWidth().aspectRatio(Desk.W / Nook.MAP_H.toFloat()).clip(RoundedCornerShape(14.dp)).pointerInput(Unit) {
+            detectTapGestures { o -> val k = size.width / Desk.W.toFloat(); val x = o.x / k; val y = o.y / k + Nook.MAP_TOP
                 Board.keys.firstOrNull { x >= it.x && x < it.x + it.w && y >= it.y - 3 && y < it.y + it.h + 3 }?.let { key ->
                     c.sound.click(s.sw, when (key.id) { "space" -> "space"; "enter" -> "enter"; "bksp" -> "backspace"; else -> null })
                     if (key.id != null && homes.containsKey(key.id)) sel = key.id } }
         }) { @Suppress("UNUSED_EXPRESSION") tick
-            drawImage(mapImg, IntOffset.Zero, IntSize(260, 104), IntOffset.Zero, IntSize(size.width.roundToInt(), size.height.roundToInt()), filterQuality = FilterQuality.None) }
+            drawImage(mapImg, IntOffset.Zero, IntSize(mapBuf.pw, mapBuf.ph), IntOffset.Zero, IntSize(size.width.roundToInt(), size.height.roundToInt()), filterQuality = FilterQuality.None) }
         Gap(8.dp)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(8.dp).clip(CircleShape).background(Color(0xFFFFD36B))); Spacer(Modifier.width(6.dp)); Text(tr("живёт", "lives here"), style = T.tiny, color = p.mute)
@@ -149,7 +153,7 @@ fun ResidentsScreen(st: Stats, s: Settings, nav: Nav) {
                 Canvas(Modifier.fillMaxWidth().aspectRatio(Nook.W / Nook.H.toFloat()).pointerInput(sel, open) {
                     detectTapGestures { if (open) { line = persona.line(Random.nextInt(9)); talk = 1.2f; c.sound.click(Click.sw); c.write { stroke() } } }
                 }) { @Suppress("UNUSED_EXPRESSION") tick
-                    drawImage(nookImg, IntOffset.Zero, IntSize(Nook.W, Nook.H), IntOffset.Zero, IntSize(size.width.roundToInt(), size.height.roundToInt()), filterQuality = FilterQuality.None) }
+                    drawImage(nookImg, IntOffset.Zero, IntSize(nookBuf.pw, nookBuf.ph), IntOffset.Zero, IntSize(size.width.roundToInt(), size.height.roundToInt()), filterQuality = FilterQuality.None) }
                 if (onDesk) Pill(tr("живёт на столе", "on the desk"), p.acc, p.accInk, Modifier.align(Alignment.TopStart).padding(12.dp))
                 if (open) Keycap(Modifier.align(Alignment.TopEnd).padding(10.dp).size(42.dp), onClick = { nav.card = Shareable(listOf(r.name to { Share.resident(ctx, r, st, s) })) }) { Icon("upload", p.kLeg, 18.dp) }
             }

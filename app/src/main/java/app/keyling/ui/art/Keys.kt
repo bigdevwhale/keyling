@@ -67,63 +67,92 @@ object Board {
     }
     val space: Key = keys.first { it.id == "space" }
 
-    /** A sculpted keycap seen from the front and above: dished top, side skirts, a taller front skirt. */
+    /**
+     * A sculpted keycap seen from the front and above: dished top, side skirts, a taller front skirt. [x], [y],
+     * [w], [h] are art pixels; the cap is drawn a device pixel at a time, so on a fine buffer its corners are
+     * round, its outline thin, its shading smooth and its legend set in a plain face.
+     */
     fun drawCap(b: Buf, x: Int, y: Int, w: Int, h: Int, p: CapPal, lab: String, wear: Float) {
-        val ft = if (h >= 20) 7 else 5; val te = y + h - ft
-        b.rect(x + 3, y, w - 6, 1, p.o)
-        b.p(x + 1, y + 1, p.o); b.p(x + w - 2, y + 1, p.o); b.rect(x + 2, y + 1, w - 4, 1, p.lo)
-        b.rect(x, y + 2, 1, h - 3, p.o); b.rect(x + w - 1, y + 2, 1, h - 3, p.o); b.rect(x + 1, y + h - 1, w - 2, 1, p.o)
-        b.rect(x + 1, y + 2, 2, h - 3, p.side); b.rect(x + w - 3, y + 2, 2, h - 3, p.sideD)
-        val fr = intArrayOf(p.front, p.frontD)
-        for (j in 0 until ft - 1) for (i in 1 until w - 1) b.p(x + i, te + j, pick(fr, j.toFloat() / (ft - 2) * .9f + (if (i > w * .75f) .15f else 0f), x + i, te + j))
-        b.rect(x + 3, te, w - 6, 1, p.hi)
-        val fh = te - (y + 2)
-        val top = intArrayOf(p.lo, p.top, p.top, p.hi)
-        for (j in 0 until fh) for (i in 3 until w - 3) {
-            val v = .25f + j.toFloat() / fh * .55f + (if (i < 5) .2f else 0f) - (if (i > w - 6) .25f else 0f)
-            b.p(x + i, y + 2 + j, pick(top, v, x + i, y + 2 + j))
+        val u = b.s; val fine = u > 1
+        val X = x * u; val Y = y * u; val W = w * u; val H = h * u
+        val ft = (if (h >= 20) 7 else 5) * u; val te = Y + H - ft          // the front skirt starts at device row te
+        val r = 2.5f * u                                                    // the corner radius
+        fun inCap(i: Int, j: Int): Boolean {                                // (i, j) device pixels inside the cap
+            if (i < 0 || j < 0 || i >= W || j >= H) return false
+            val cx = if (i < r) r - i - .5f else if (i >= W - r) i + .5f - (W - r) else 0f
+            val cy = if (j < r) r - j - .5f else if (j >= H - r) j + .5f - (H - r) else 0f
+            return cx * cx + cy * cy <= r * r
         }
-        b.p(x + 3, y + 2, p.side); b.p(x + w - 4, y + 2, p.sideD); b.p(x + 3, te - 1, p.side); b.p(x + w - 4, te - 1, p.sideD)
+        // the top face: inset 3 art pixels from the sides, from the second art row to the front skirt
+        val fx0 = 3 * u; val fx1 = W - 3 * u; val fy0 = 2 * u; val fy1 = te - Y; val fr = 1.5f * u
+        fun inFace(i: Int, j: Int): Boolean {
+            if (i < fx0 || i >= fx1 || j < fy0 || j >= fy1) return false
+            val cx = if (i < fx0 + fr) fx0 + fr - i - .5f else if (i >= fx1 - fr) i + .5f - (fx1 - fr) else 0f
+            val cy = if (j < fy0 + fr) fy0 + fr - j - .5f else if (j >= fy1 - fr) j + .5f - (fy1 - fr) else 0f
+            return cx * cx + cy * cy <= fr * fr
+        }
+        val face = intArrayOf(p.lo, p.top, p.top, p.hi); val front = intArrayOf(p.front, p.frontD)
+        fun tone(rr: IntArray, v: Float, i: Int, j: Int) = if (fine) lerp(rr, v) else pick(rr, v, i, j)
+        val fh = (fy1 - fy0).toFloat()
+        for (j in 0 until H) for (i in 0 until W) {
+            if (!inCap(i, j)) continue
+            val c = when {
+                !inCap(i - 1, j) || !inCap(i + 1, j) || !inCap(i, j - 1) || !inCap(i, j + 1) -> p.o
+                inFace(i, j) -> { val ax = i.toFloat() / u
+                    tone(face, .25f + (j - fy0) / fh * .55f + (if (ax < 5) .2f else 0f) - (if (ax > w - 6) .25f else 0f), X + i, Y + j) }
+                j >= te - Y -> if (j < te - Y + (u + 1) / 2 && i in fx0 until fx1) p.hi
+                    else tone(front, (j - (te - Y)).toFloat() / (ft - u).coerceAtLeast(1) * .9f + (if (i > W * .75f) .15f else 0f), X + i, Y + j)
+                j < fy0 -> p.lo
+                i < W / 2 -> p.side
+                else -> p.sideD
+            }
+            b.px(X + i, Y + j, c)
+        }
         if (wear > .04f) {
-            val cx = x + w / 2f; val cy = y + 2 + fh * .55f; val rx = minOf(w * .32f, 9f); val ry = fh * .32f
-            for (j in 0 until fh) for (i in 3 until w - 3) {
-                val dx = (x + i - cx) / rx; val dy = (y + 2 + j - cy) / ry; val d = dx * dx + dy * dy
-                if (d < 1 && bay(x + i, y + 2 + j) < wear * (1 - d) * .7f)
-                    b.p(x + i, y + 2 + j, if (d < .25f && wear > .6f && (x + i + y + j) % 4 == 0) shade(p.hi, .4f) else p.hi)
+            // the shine a finger polishes into the middle of the top
+            val cx = W / 2f; val cy = fy0 + fh * .55f; val rx = minOf(W * .32f, 9f * u); val ry = fh * .32f
+            for (j in fy0 until fy1) for (i in fx0 until fx1) {
+                if (!inFace(i, j)) continue
+                val dx = (i - cx) / rx; val dy = (j - cy) / ry; val d = dx * dx + dy * dy
+                if (d >= 1) continue
+                if (fine) b.px(X + i, Y + j, p.hi, (wear * (1 - d) * .8f).coerceAtMost(.9f))
+                else if (bay(X + i, Y + j) < wear * (1 - d) * .7f) b.px(X + i, Y + j, if (d < .25f && wear > .6f && (X + i + Y + j) % 4 == 0) shade(p.hi, .4f) else p.hi)
             }
         }
         val big = h >= 20
         if (lab.isNotBlank() && (big || lab.length == 1)) {
-            val g = Glyphs.text(lab, p.leg, if (lab.length > 1) 5f else 8f)
-            val lx = if (big) x + 5 else x + (w - Glyphs.inkWidth(g)) / 2
-            val ly = if (big) y + 4 else y + 2
-            b.blit(g, lx, ly - 1)
+            val size = if (!fine) (if (lab.length > 1) 5f else 8f) else if (big) (if (lab.length > 1) 6.5f else 10f) else if (lab.length > 1) 5f else 7f
+            val g = Glyphs.text(lab, p.leg, size, u, smooth = fine)
+            val (gx0, gx1) = Glyphs.inkSpan(g)
+            val lx = if (big) X + 5 * u else X + (W - (gx1 - gx0)) / 2 - gx0
+            val ly = if (!fine) (if (big) Y + 4 * u else Y + 2 * u) - u
+                else if (big) Y + 3 * u else Y + fy0 + ((fh - size * .73f * u) / 2).toInt() - (size * .27f * u).toInt()
+            b.blitPx(g, lx, ly)
             if (wear > .05f) {
                 // A worn legend: the top colour creeps back over the print.
-                val fade = Glyphs.text(lab, p.top, if (lab.length > 1) 5f else 8f)
-                b.blit(fade, lx, ly - 1, alpha = minOf(.85f, wear * .9f))
+                b.blitPx(Glyphs.text(lab, p.top, size, u, smooth = fine), lx, ly, alpha = minOf(.85f, wear * .9f))
             }
         }
     }
 
     class Caps(val up: Buf, val dn: Buf)
 
-    /** Every keycap of [set] drawn twice, up and pressed, with wear from [wearDays] of writing. */
-    fun buildCaps(set: CapSet, wearDays: Int): Map<Key, Caps> {
+    /** Every keycap of [set] drawn twice, up and pressed, with wear from [wearDays] of writing, [s] device pixels per art pixel. */
+    fun buildCaps(set: CapSet, wearDays: Int, s: Int = 1): Map<Key, Caps> {
         val wk = wearDays / 300f
         return keys.associateWith { k ->
             val p = when (k.type) { 'a' -> CapPal(set.a, set.la); 'x' -> CapPal(set.x, set.lx); else -> CapPal(set.m, set.lm) }
             val wear = minOf(1f, k.freq / 11f * wk)
-            val up = Buf(k.w, k.h).also { drawCap(it, 0, 0, k.w, k.h, p, k.lab, wear) }
+            val up = Buf(k.w, k.h, s).also { drawCap(it, 0, 0, k.w, k.h, p, k.lab, wear) }
             val dd = if (k.h >= 20) 2 else 1
-            val dn = Buf(k.w, k.h).also { drawCap(it, 0, dd, k.w, k.h - dd, p, k.lab, wear) }
+            val dn = Buf(k.w, k.h, s).also { drawCap(it, 0, dd, k.w, k.h - dd, p, k.lab, wear) }
             Caps(up, dn)
         }
     }
 
     /** Three big caps (an accent, a worn letter, a modifier) for the set's card in the shop. */
-    fun preview(set: CapSet): Buf {
-        val b = Buf(90, 40)
+    fun preview(set: CapSet, s: Int = 1): Buf {
+        val b = Buf(90, 40, s)
         b.rect(0, 0, 90, 40, set.plate); b.rect(0, 0, 90, 3, set.case); b.rect(0, 37, 90, 3, set.case)
         drawCap(b, 3, 7, 26, 24, CapPal(set.x, set.lx), "Esc", 0f)
         drawCap(b, 31, 7, 26, 24, CapPal(set.a, set.la), "О", .6f)

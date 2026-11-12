@@ -105,10 +105,10 @@ fun HomeScreen(st: Stats, s: Settings, nav: Nav) {
     val sprites by produceState(c.art.peekSprites(spK) ?: emptyList(), spK) { value = withContext(Dispatchers.Default) { c.art.sprites(decor, custom) } }
     // where things stand: saved offsets, plus the one being dragged right now
     var drag by remember { mutableStateOf<Pair<String, Pair<Int, Int>>?>(null) }
-    val caps by produceState<Map<app.keyling.ui.art.Key, Board.Caps>?>(c.art.peekCaps(capsK), capsK) { value = withContext(Dispatchers.Default) { c.art.caps(set, st.activeDays) } }
+    val caps by produceState<Map<app.keyling.ui.art.Key, Board.Caps>?>(c.art.peekCaps(capsK) ?: c.art.peekAnyCaps(set), capsK) { value = withContext(Dispatchers.Default) { c.art.caps(set, st.activeDays) } }
     val pages = (bookWords * CHARS_PER_WORD / PAGE).roundToInt()
-    val frame = remember { Buf(Desk.W, Desk.H) }
-    val bmp = remember { Bitmap.createBitmap(Desk.W, Desk.H, Bitmap.Config.ARGB_8888) }
+    val frame = remember { Buf(Desk.W, Desk.H, Desk.S) }
+    val bmp = remember { Bitmap.createBitmap(frame.pw, frame.ph, Bitmap.Config.ARGB_8888) }
     val img = remember(bmp) { bmp.asImageBitmap() }
     var tick by remember { mutableIntStateOf(0) }
     var bubble by remember { mutableStateOf<String?>(null) }
@@ -125,10 +125,11 @@ fun HomeScreen(st: Stats, s: Settings, nav: Nav) {
     scene.dust = st.dusty; scene.pet = s.pet; scene.steam = s.mug != "thermo"; scene.candle = s.mascot == "candle"
     val stNow by androidx.compose.runtime.rememberUpdatedState(st)
     val sprintNow by androidx.compose.runtime.rememberUpdatedState(sprint)
+    // the greeting waits a moment; the desk itself is drawn from the first frame
     LaunchedEffect(Unit) {
         scene.drop(8)
-        delay(1100); val st = stNow; say(if (st.dusty) tr("Хр-р… Тут всё в пыли. Хватит пятидесяти слов, чтобы сдуть.", "Zzz… It's all dusty. Fifty words will blow it away.")
-            else if (st.todayWords < s.norm) tr("Привет! До нормы ${fmt(s.norm - st.todayWords)} слов.", "Hi! ${fmt(s.norm - st.todayWords)} words to today's goal.") else persona.line(Random.nextInt(9)))
+        launch { delay(1100); val st = stNow; say(if (st.dusty) tr("Хр-р… Тут всё в пыли. Хватит пятидесяти слов, чтобы сдуть.", "Zzz… It's all dusty. Fifty words will blow it away.")
+            else if (st.todayWords < s.norm) tr("Привет! До нормы ${fmt(s.norm - st.todayWords)} слов.", "Hi! ${fmt(s.norm - st.todayWords)} words to today's goal.") else persona.line(Random.nextInt(9))) }
         var last = 0L
         while (true) withFrameNanos { ns ->
             if (last == 0L) last = ns
@@ -137,7 +138,7 @@ fun HomeScreen(st: Stats, s: Settings, nav: Nav) {
                 if (sprintNow != null && Random.nextFloat() < dt * 5) Board.keys.filter { it.freq > .5f }.random().press = .1f
                 scene.step(dt)
                 val b = bg; val k = caps
-                if (b != null && k != null) { scene.render(frame, b, k, set.plate, pages); bmp.setPixels(frame.d, 0, Desk.W, 0, 0, Desk.W, Desk.H) }
+                if (b != null) { scene.render(frame, b, k ?: emptyMap(), set.plate, pages); bmp.setPixels(frame.d, 0, frame.pw, 0, 0, frame.pw, frame.ph) }
                 tick++ }
         }
     }
@@ -189,8 +190,9 @@ fun HomeScreen(st: Stats, s: Settings, nav: Nav) {
             }
         }) {
             @Suppress("UNUSED_EXPRESSION") tick
-            drawImage(img, IntOffset.Zero, IntSize(Desk.W, Desk.H), IntOffset(ox.roundToInt(), oy.roundToInt()), IntSize((Desk.W * k).roundToInt(), (Desk.H * k).roundToInt()), filterQuality = FilterQuality.None)
-            if (s.lamp == "banker") { val (ldx, ldy) = scene.at("lamp"); val lc = Offset(ox + (Desk.SLOT_LAMP.first + 26 + ldx) * k, oy + (Desk.SLOT_LAMP.second + 34 + ldy) * k)
+            drawImage(img, IntOffset.Zero, IntSize(frame.pw, frame.ph), IntOffset(ox.roundToInt(), oy.roundToInt()), IntSize((Desk.W * k).roundToInt(), (Desk.H * k).roundToInt()), filterQuality = FilterQuality.None)
+            val lamp = sprites.firstOrNull { it.id == "lamp" }; val hot = lamp?.hot
+            if (lamp != null && hot != null) { val (ldx, ldy) = scene.at("lamp"); val lc = Offset(ox + (lamp.x + hot.first + ldx) * k, oy + (lamp.y + hot.second + ldy) * k)
                 drawCircle(Brush.radialGradient(listOf(Color(0x38FFD68C), Color.Transparent), lc, 150 * k), 150 * k, lc) }
             drawRect(Brush.radialGradient(listOf(Color.Transparent, Color(0x8C0A0406)), Offset(size.width * .4f, size.height * .4f), size.height * .8f))
         }
