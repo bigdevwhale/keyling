@@ -32,12 +32,17 @@ data class Settings(
     val onboarded: Boolean = false,
     val pos: Map<String, Pair<Int, Int>> = emptyMap(), // where desk things were moved: offset from their usual place
     val movedHint: Boolean = false,
+    // a running sprint, kept here so it outlives a tab switch or the app being closed while you write elsewhere
+    val sprintEnds: Long = 0,            // when it ends, epoch ms; 0 = no sprint
+    val sprintMin: Int = 0,
+    val sprintGhost: Int = 0,            // the ghost's words per minute ×10
 ) {
     fun json(): JSONObject = JSONObject().apply {
         put("theme", theme); put("unit", unit); put("norm", norm); put("yearGoal", yearGoal); put("book", book); put("pet", pet)
         put("sw", sw); put("sound", sound); put("caps", caps); put("desk", desk); put("mug", mug); put("plant", plant); put("lamp", lamp); put("mascot", mascot)
         put("coins", coins); put("owned", JSONArray(owned.toList())); put("claimed", JSONArray(claimed.toList())); put("pets", pets)
         put("bestSprint", bestSprint); put("ghostWins", ghostWins); put("sprints", sprints); put("onboarded", onboarded); put("movedHint", movedHint)
+        put("sprintEnds", sprintEnds); put("sprintMin", sprintMin); put("sprintGhost", sprintGhost)
         put("pos", JSONObject().apply { pos.forEach { (k, v) -> put(k, JSONArray(listOf(v.first, v.second))) } })
     }
 
@@ -51,7 +56,7 @@ data class Settings(
                 j.optInt("coins", d.coins), set("owned"), set("claimed"), j.optInt("pets"), j.optInt("bestSprint"), j.optInt("ghostWins"), j.optInt("sprints"),
                 j.optBoolean("onboarded"),
                 j.optJSONObject("pos")?.let { o -> o.keys().asSequence().associateWith { k -> o.getJSONArray(k).let { it.getInt(0) to it.getInt(1) } } } ?: emptyMap(),
-                j.optBoolean("movedHint"))
+                j.optBoolean("movedHint"), j.optLong("sprintEnds"), j.optInt("sprintMin"), j.optInt("sprintGhost"))
         }
     }
 }

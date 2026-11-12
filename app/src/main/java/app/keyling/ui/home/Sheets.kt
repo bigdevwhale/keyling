@@ -171,7 +171,7 @@ fun SprintEnd(s: Settings, sp: Sprint?, onClose: () -> Unit, onDone: (String) ->
         Gap(14.dp)
         BigButton(tr("Готово", "Done"), enabled = (text.toIntOrNull() ?: 0) > 0) {
             val n = text.toInt(); val wpm10 = n * 10 / minutes; val ghost = s.bestSprint * minutes / 10; val won = s.bestSprint > 0 && n > ghost
-            c.write { settings.update { it.copy(sprints = it.sprints + 1, bestSprint = max(it.bestSprint, wpm10), ghostWins = it.ghostWins + if (won) 1 else 0) }; addWords(n, kind = "sprint", minutes = minutes) }
+            c.write { settings.update { it.copy(sprints = it.sprints + 1, bestSprint = max(it.bestSprint, wpm10), ghostWins = it.ghostWins + if (won) 1 else 0, sprintEnds = 0) }; addWords(n, kind = "sprint", minutes = minutes) }
             onDone(if (won) tr("Призрак обогнан на ${n - ghost} слов! Горлан поёт.", "You beat the ghost by ${n - ghost} words! Shouter sings.") else if (s.bestSprint == 0) tr("Призрак родился. Теперь есть кого догонять.", "The ghost is born. Now there's someone to chase.")
                 else tr("Призрак был на ${ghost - n} слов впереди. В следующий раз!", "The ghost was ${ghost - n} words ahead. Next time!"))
             onClose()

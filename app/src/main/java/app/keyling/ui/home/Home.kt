@@ -114,7 +114,9 @@ fun HomeScreen(st: Stats, s: Settings, nav: Nav) {
     var bubble by remember { mutableStateOf<String?>(null) }
     var bubbleAt by remember { mutableLongStateOf(0L) }
     var sheet by remember { mutableStateOf<String?>(null) }   // write · edit · sprint · sprintEnd · book
-    var sprint by remember { mutableStateOf<Sprint?>(null) }
+    // the sprint lives in settings, not here: leaving the screen or the app must not lose it
+    val sprint = if (s.sprintEnds > 0) Sprint(s.sprintMin, s.sprintEnds, s.sprintGhost) else null
+    fun endSprint() = c.write { settings.update { it.copy(sprintEnds = 0) } }
     val persona = PERSONAS.getValue(s.pet)
     fun say(text: String) { bubble = text; bubbleAt = System.currentTimeMillis() }
 
@@ -122,6 +124,7 @@ fun HomeScreen(st: Stats, s: Settings, nav: Nav) {
     scene.stage = app.keyling.domain.Food.stageIndex(app.keyling.domain.Residents.of(s.pet).level(st))
     scene.dust = st.dusty; scene.pet = s.pet; scene.steam = s.mug != "thermo"; scene.candle = s.mascot == "candle"
     val stNow by androidx.compose.runtime.rememberUpdatedState(st)
+    val sprintNow by androidx.compose.runtime.rememberUpdatedState(sprint)
     LaunchedEffect(Unit) {
         scene.drop(8)
         delay(1100); val st = stNow; say(if (st.dusty) tr("Хр-р… Тут всё в пыли. Хватит пятидесяти слов, чтобы сдуть.", "Zzz… It's all dusty. Fifty words will blow it away.")
@@ -131,7 +134,7 @@ fun HomeScreen(st: Stats, s: Settings, nav: Nav) {
             if (last == 0L) last = ns
             val dt = ((ns - last) / 1e9f).coerceAtMost(.05f)
             if (dt >= 1 / 32f) { last = ns
-                if (sprint != null && Random.nextFloat() < dt * 5) Board.keys.filter { it.freq > .5f }.random().press = .1f
+                if (sprintNow != null && Random.nextFloat() < dt * 5) Board.keys.filter { it.freq > .5f }.random().press = .1f
                 scene.step(dt)
                 val b = bg; val k = caps
                 if (b != null && k != null) { scene.render(frame, b, k, set.plate, pages); bmp.setPixels(frame.d, 0, Desk.W, 0, 0, Desk.W, Desk.H) }
@@ -147,9 +150,11 @@ fun HomeScreen(st: Stats, s: Settings, nav: Nav) {
         else -> sheet = a }
         nav.homeSheet = null }
     LaunchedEffect(bubbleAt) { if (bubble != null) { delay(3200); bubble = null } }
-    LaunchedEffect(sprint) { val sp = sprint ?: return@LaunchedEffect
+    LaunchedEffect(s.sprintEnds) { val sp = sprint ?: return@LaunchedEffect
         while (System.currentTimeMillis() < sp.endsAt) { delay(500); tick++ }
-        c.sound.click(s.sw, "enter"); sheet = "sprintEnd" }
+        // ended while we were away: just ask how it went, without the click
+        if (System.currentTimeMillis() - sp.endsAt < 5_000) c.sound.click(s.sw, "enter")
+        sheet = "sprintEnd" }
 
     BoxWithConstraints(Modifier.fillMaxSize().background(Color(0xFF120C0E))) {
         val density = LocalDensity.current
@@ -229,9 +234,12 @@ fun HomeScreen(st: Stats, s: Settings, nav: Nav) {
 
     when (sheet) {
         "write", "edit" -> WriteSheet(st, s, if (sheet == "edit") 2 else 0, chapterPre, onClose = { sheet = null; chapterPre = false }) { n, line -> scene.dust = false; if (n > 0) scene.drop((n / 40).coerceIn(3, 14)); say(line) }
-        "sprint" -> SprintStart(s, onClose = { sheet = null }) { m -> sprint = Sprint(m, System.currentTimeMillis() + m * 60_000L, max(s.bestSprint, 150)); sheet = null
+        "sprint" -> SprintStart(s, onClose = { sheet = null }) { m -> val ends = System.currentTimeMillis() + m * 60_000L; val ghost = max(s.bestSprint, 150)
+            c.write { settings.update { it.copy(sprintEnds = ends, sprintMin = m, sprintGhost = ghost) } }; sheet = null
             say(PERSONAS.getValue("caps").line(0)) }
-        "sprintEnd" -> SprintEnd(s, sprint, onClose = { sheet = null; sprint = null }) { line -> say(line); scene.drop(10) }
+        "sprintEnd" -> SprintEnd(s, sprint, onClose = { sheet = null
+            // closing the sheet mid-sprint keeps the sprint going; once it's over, closing drops it
+            if (sprint != null && System.currentTimeMillis() >= sprint.endsAt) endSprint() }) { line -> say(line); scene.drop(10) }
         "book" -> BookSheet(st, s) { sheet = null }
     }
 }
