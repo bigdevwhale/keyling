@@ -6,6 +6,21 @@ line "<!-- tg", then 2-4 short lines in Russian for users (what is new, what is 
 then close it like any HTML comment. The release notes carry it, and the chat bot posts those lines.
 -->
 
+## [1.2.0] - 2026-11-12
+
+- Everything on the desk is drawn anew: the notebook, the sticky note, the eraser, all five mugs, the plants, the lamp, the cat, the candle and the globe. A photo on the plain mug now wraps round it.
+- The desk and the residents' screen are three times finer: smooth wood and light, rounded keycaps with clear legends, and the residents drawn in much finer detail on the desk, at home and in the list.
+- The keyboard on the residents' screen is the same as the one on the desk.
+- The desk shows at once instead of after a dark pause.
+- Fixed: a sprint stopped a few seconds in if you left the desk or switched to another app to write. It now keeps going, and asks how it went when you come back.
+
+<!-- tg
+Всё на столе нарисовано заново: блокнот, кружки, растения, лампа, кот, свеча и глобус
+Стол и жители стали в три раза детальнее, пикселей почти не видно
+Стол открывается сразу, без чёрного экрана
+Исправлен спринт: он больше не слетает, если уйти со стола или писать в другом приложении
+-->
+
 ## [1.1.0] - 2026-11-11
 
 - All seven residents are drawn anew, and each one grows through four looks: baby, youngster, grown and ancient. Spacelet gathers letter tiles, the heron gets a monocle, the frog a crown, the snail a second suitcase.
