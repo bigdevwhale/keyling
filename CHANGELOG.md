@@ -6,6 +6,17 @@ line "<!-- tg", then 2-4 short lines in Russian for users (what is new, what is 
 then close it like any HTML comment. The release notes carry it, and the chat bot posts those lines.
 -->
 
+## [1.3.0] - 2026-11-13
+
+- My log: every sitting by day, newest first. Tap one to fix its number, mark or unmark a finished chapter, or delete it; coins follow the fix. Open it from «My log ›» in the «What did you do?» sheet on the desk, or from Totals → Books.
+- Fixed: the sprint timer and the ghost froze a few seconds in and only moved again after reopening the app. They now count down on their own.
+
+<!-- tg
+Новое: «Мои записи» – все записи по дням, любую можно исправить или удалить, буквицы пересчитаются
+Открыть: «Мои записи ›» в окне «Что сделано?» на столе или Итоги → Книги
+Исправлен таймер спринта: он больше не застывает через пару секунд
+-->
+
 ## [1.2.0] - 2026-11-12
 
 - Everything on the desk is drawn anew: the notebook, the sticky note, the eraser, all five mugs, the plants, the lamp, the cat, the candle and the globe. A photo on the plain mug now wraps round it.
