@@ -67,6 +67,7 @@ import app.keyling.ui.components.Sec
 import app.keyling.ui.components.Tabs
 import app.keyling.ui.home.BigButton
 import app.keyling.ui.home.BookSheet
+import app.keyling.ui.home.LogSheet
 import app.keyling.ui.home.COVERS
 import app.keyling.ui.home.NumField
 import app.keyling.ui.home.Sheet
@@ -93,7 +94,7 @@ fun TotalsScreen(st: Stats, s: Settings, nav: app.keyling.ui.Nav) {
         Tabs(listOf(tr("Год", "Year"), tr("Книги", "Books"), tr("Рекорды", "Records"), tr("Награды", "Awards")), tab) { tab = it }
         when (tab) {
             0 -> Year(st, s) { sheet = "goal" }
-            1 -> Books(st, s) { sheet = "book" }
+            1 -> Books(st, s, onLog = { sheet = "log" }) { sheet = "book" }
             2 -> Records(st)
             else -> Awards(st) { sheet = it }
         }
@@ -101,6 +102,7 @@ fun TotalsScreen(st: Stats, s: Settings, nav: app.keyling.ui.Nav) {
     when (val sh = sheet) {
         "goal" -> GoalSheet(s) { sheet = null }
         "book" -> BookSheet(st, s) { sheet = null }
+        "log" -> LogSheet(st) { sheet = null }
         is Ach -> Sheet({ sheet = null }) {
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { Medal(sh.icon, sh.tier, sh.done, sh.value.toFloat() / sh.target, 110.dp) }
             Gap(12.dp); Text(sh.name, style = T.h2, color = p.ink, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
@@ -184,7 +186,7 @@ private fun Heatmap(st: Stats) {
 }
 
 @Composable
-private fun Books(st: Stats, s: Settings, onEdit: () -> Unit) {
+private fun Books(st: Stats, s: Settings, onLog: () -> Unit, onEdit: () -> Unit) {
     val p = K.pal; val book = st.books.firstOrNull { it.id == s.book } ?: st.books.firstOrNull() ?: return
     val w = st.bookWords(book); val chars = (w * CHARS_PER_WORD).toInt()
     Sec(tr("Сейчас пишется", "Writing now"))
@@ -199,6 +201,11 @@ private fun Books(st: Stats, s: Settings, onEdit: () -> Unit) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { for ((v, l) in row) Column(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(p.surface2).padding(10.dp)) { Text(v, style = T.bodyB, color = p.ink); Text(l, style = T.tiny, color = p.mute) } }
             Gap(8.dp) }
     } }
+    Gap(10.dp)
+    Card(onClick = onLog) { Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) { Text(tr("Мои записи", "My log"), style = T.bodyB, color = p.ink)
+            Text(tr("Все записи по дням: исправить число или удалить", "Every sitting by day: fix a number or delete it"), style = T.small, color = p.mute) }
+        Text("›", style = T.bodyB, color = p.mute) } }
     Sec(tr("Все книги", "All books"))
     Card(pad = 12.dp) { Column { st.books.forEachIndexed { i, b ->
         Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {

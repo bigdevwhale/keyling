@@ -60,6 +60,7 @@ interface KeyDao {
     @Insert suspend fun insert(b: Book): Long
     @Update suspend fun update(b: Book)
     @Insert suspend fun insert(e: Entry): Long
+    @Update suspend fun update(e: Entry)
     @Insert suspend fun insert(c: Caught): Long
     @Query("DELETE FROM Entry WHERE id = :id") suspend fun deleteEntry(id: Long)
     @Query("DELETE FROM Book WHERE id = :id") suspend fun deleteBook(id: Long)

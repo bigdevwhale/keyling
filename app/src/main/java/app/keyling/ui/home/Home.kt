@@ -111,9 +111,10 @@ fun HomeScreen(st: Stats, s: Settings, nav: Nav) {
     val bmp = remember { Bitmap.createBitmap(frame.pw, frame.ph, Bitmap.Config.ARGB_8888) }
     val img = remember(bmp) { bmp.asImageBitmap() }
     var tick by remember { mutableIntStateOf(0) }
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var bubble by remember { mutableStateOf<String?>(null) }
     var bubbleAt by remember { mutableLongStateOf(0L) }
-    var sheet by remember { mutableStateOf<String?>(null) }   // write · edit · sprint · sprintEnd · book
+    var sheet by remember { mutableStateOf<String?>(null) }   // write · edit · sprint · sprintEnd · book · log
     // the sprint lives in settings, not here: leaving the screen or the app must not lose it
     val sprint = if (s.sprintEnds > 0) Sprint(s.sprintMin, s.sprintEnds, s.sprintGhost) else null
     fun endSprint() = c.write { settings.update { it.copy(sprintEnds = 0) } }
@@ -152,7 +153,8 @@ fun HomeScreen(st: Stats, s: Settings, nav: Nav) {
         nav.homeSheet = null }
     LaunchedEffect(bubbleAt) { if (bubble != null) { delay(3200); bubble = null } }
     LaunchedEffect(s.sprintEnds) { val sp = sprint ?: return@LaunchedEffect
-        while (System.currentTimeMillis() < sp.endsAt) { delay(500); tick++ }
+        // `now` is read by the timer text, so every update recomposes it (tick only redraws the canvas)
+        while (System.currentTimeMillis() < sp.endsAt) { delay(500); now = System.currentTimeMillis() }
         // ended while we were away: just ask how it went, without the click
         if (System.currentTimeMillis() - sp.endsAt < 5_000) c.sound.click(s.sw, "enter")
         sheet = "sprintEnd" }
@@ -219,7 +221,7 @@ fun HomeScreen(st: Stats, s: Settings, nav: Nav) {
             }
             Ring(st.todayWords, s.norm)
         }
-        sprint?.let { sp -> val left = max(0L, sp.endsAt - System.currentTimeMillis()) / 1000
+        sprint?.let { sp -> val left = max(0L, sp.endsAt - max(now, System.currentTimeMillis())) / 1000
             val el = sp.minutes * 60 - left; val ghost = (sp.ghostWpm10 * el / 600f).roundToInt()
             Text("⏱ ${left / 60}:${(left % 60).toString().padStart(2, '0')}  ·  " + tr("призрак уже на $ghost словах", "ghost is at $ghost words"), style = T.smallB, color = p.ink,
                 modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 104.dp).clip(RoundedCornerShape(20.dp)).background(p.surface).padding(horizontal = 14.dp, vertical = 7.dp)) }
@@ -235,7 +237,7 @@ fun HomeScreen(st: Stats, s: Settings, nav: Nav) {
     }
 
     when (sheet) {
-        "write", "edit" -> WriteSheet(st, s, if (sheet == "edit") 2 else 0, chapterPre, onClose = { sheet = null; chapterPre = false }) { n, line -> scene.dust = false; if (n > 0) scene.drop((n / 40).coerceIn(3, 14)); say(line) }
+        "write", "edit" -> WriteSheet(st, s, if (sheet == "edit") 2 else 0, chapterPre, onLog = { sheet = "log"; chapterPre = false }, onClose = { sheet = null; chapterPre = false }) { n, line -> scene.dust = false; if (n > 0) scene.drop((n / 40).coerceIn(3, 14)); say(line) }
         "sprint" -> SprintStart(s, onClose = { sheet = null }) { m -> val ends = System.currentTimeMillis() + m * 60_000L; val ghost = max(s.bestSprint, 150)
             c.write { settings.update { it.copy(sprintEnds = ends, sprintMin = m, sprintGhost = ghost) } }; sheet = null
             say(PERSONAS.getValue("caps").line(0)) }
@@ -243,6 +245,7 @@ fun HomeScreen(st: Stats, s: Settings, nav: Nav) {
             // closing the sheet mid-sprint keeps the sprint going; once it's over, closing drops it
             if (sprint != null && System.currentTimeMillis() >= sprint.endsAt) endSprint() }) { line -> say(line); scene.drop(10) }
         "book" -> BookSheet(st, s) { sheet = null }
+        "log" -> LogSheet(st) { sheet = null }
     }
 }
 

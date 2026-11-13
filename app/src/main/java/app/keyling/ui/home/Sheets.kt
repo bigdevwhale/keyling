@@ -96,7 +96,7 @@ fun BigButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = tr
 
 /** Logging a sitting: words added, the manuscript's total now, or minutes of editing. */
 @Composable
-fun WriteSheet(st: Stats, s: Settings, start: Int, chapterPre: Boolean = false, onClose: () -> Unit, onDone: (Int, String) -> Unit) {
+fun WriteSheet(st: Stats, s: Settings, start: Int, chapterPre: Boolean = false, onLog: (() -> Unit)? = null, onClose: () -> Unit, onDone: (Int, String) -> Unit) {
     val c = LocalContext.current.container; val p = K.pal
     var mode by remember { mutableIntStateOf(start) }
     var text by remember { mutableStateOf("") }
@@ -105,7 +105,11 @@ fun WriteSheet(st: Stats, s: Settings, start: Int, chapterPre: Boolean = false, 
     val book = st.books.firstOrNull { it.id == s.book } ?: st.books.firstOrNull()
     val bookWords = book?.let { st.bookWords(it) } ?: 0
     Sheet(onClose) {
-        Text(tr("Что сделано?", "What did you do?"), style = T.h2, color = p.ink); Gap(12.dp)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(tr("Что сделано?", "What did you do?"), style = T.h2, color = p.ink, modifier = Modifier.weight(1f))
+            if (onLog != null) Text(tr("Мои записи ›", "My log ›"), style = T.smallB, color = p.acc, modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onLog).padding(horizontal = 6.dp, vertical = 6.dp))
+        }
+        Gap(12.dp)
         Tabs(listOf(tr("Прибавилось", "Added"), tr("Всего в книге", "Book total"), tr("Правка", "Editing")), mode) { mode = it; text = "" }
         Gap(14.dp)
         when (mode) {

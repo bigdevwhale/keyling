@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import kotlin.math.max
 
 /** What a sitting earned, for the toast and the pet's reaction. */
 data class Reward(val coins: Int, val norm: Boolean, val chapter: Boolean, val achievements: List<String>)
@@ -86,6 +87,22 @@ class AppContainer(context: Context) {
     suspend fun restDay() = run { dao.insert(Entry(bookId = currentBook(), day = today(), at = System.currentTimeMillis(), kind = "rest")); reconcile(0, false, false) }
 
     suspend fun pastWords(n: Int) { val id = currentBook(); dao.bookList().firstOrNull { it.id == id }?.let { dao.update(it.copy(startWords = it.startWords + n)) } }
+
+    /** What a sitting paid when it was logged (the norm bonus aside), so a fix can take back or add the difference. */
+    private fun paid(e: Entry, pet: String): Int {
+        val hour = java.time.Instant.ofEpochMilli(e.at).atZone(java.time.ZoneId.systemDefault()).hour
+        return when (e.kind) { "add", "sprint" -> Ability.wordCoins(pet, e.words, e.kind, hour); "edit" -> Ability.editCoins(pet, e.minutes); else -> 0 } +
+            (if (e.chapter) Ability.chapterCoins(pet) else 0)
+    }
+
+    /** Fixes a logged sitting ([new] = null deletes it); буквицы follow the change, never below zero. */
+    suspend fun editEntry(old: Entry, new: Entry?) {
+        val pet = settings.now().pet
+        if (new == null) dao.deleteEntry(old.id) else dao.update(new)
+        val diff = (new?.let { paid(it, pet) } ?: 0) - paid(old, pet)
+        if (diff != 0) settings.update { it.copy(coins = max(0, it.coins + diff)) }
+        reconcile(0, false, false)
+    }
 
     suspend fun catchBug(kind: Int) { dao.insert(Caught(kind = kind, at = System.currentTimeMillis())); reconcile(1, false, false) }
 
