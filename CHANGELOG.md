@@ -6,6 +6,17 @@ line "<!-- tg", then 2-4 short lines in Russian for users (what is new, what is 
 then close it like any HTML comment. The release notes carry it, and the chat bot posts those lines.
 -->
 
+## [1.4.0] - 2026-11-16
+
+### Added
+- **Lingvale, the village of the pets from all our apps:** Keyling now has a small read-only bridge, so in Lingvale you can build the writing desk and its residents move in with their days. The bridge answers only Lingvale signed with our key; it changes nothing and nothing leaves the phone.
+
+<!-- tg
+Питомцы Keyling теперь могут жить в Lingvale – общей деревне наших приложений.
+В Lingvale для них можно построить письменный стол, и жильцы переедут туда сами вместе со своими днями.
+Данные остаются в Keyling: деревня их только читает.
+-->
+
 ## [1.3.0] - 2026-11-13
 
 - My log: every sitting by day, newest first. Tap one to fix its number, mark or unmark a finished chapter, or delete it; coins follow the fix. Open it from «My log ›» in the «What did you do?» sheet on the desk, or from Totals → Books.
