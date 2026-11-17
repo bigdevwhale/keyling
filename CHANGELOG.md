@@ -6,6 +6,22 @@ line "<!-- tg", then 2-4 short lines in Russian for users (what is new, what is 
 then close it like any HTML comment. The release notes carry it, and the chat bot posts those lines.
 -->
 
+## [1.5.0] - 2026-11-17
+
+### Added
+- **A book without a goal (#4):** the book sheet has «No goal – just count the words». Then the desk, the totals and the share card show the total and what the week added instead of a bar and a finish date.
+- **Any daily goal (#5):** tap today's ring on the desk to set it – type any number or pick 300 to 2 000. In the settings it can be typed too, not only stepped by 100.
+- **Words in the file at a sprint's start (#6):** type how many words the file had when the sprint began; at the end type how many it has now, and Keyling works out the difference. The next sprint offers the last count as its start, for sprints in a row in one file.
+- **Keys clattering during a sprint (#8):** a switch in the sprint sheet plays your switch typing in bursts and pauses for the whole sprint, also while you write in another app. A notification shows the time left and can stop the sound.
+- **Moving things in the workshop (#7):** on the desk preview in the workshop, hold a thing and drag it, as on the desk itself; «Put back» returns everything to its place. After buying a thing, a hint says how to move it.
+
+<!-- tg
+Цель для книги теперь можно не ставить: тогда Клавишка просто покажет, сколько всего написано и сколько прибавилось за неделю.
+Дневную норму можно задать любым числом – нажмите на кольцо «сегодня» на столе.
+В спринте можно вписать, сколько слов было в файле на старте, а разницу Клавишка посчитает сама. Ещё спринт может идти под стук клавиш, даже если вы пишете в другом приложении.
+Вещи на столе теперь двигаются и в мастерской: удерживайте вещь и тяните.
+-->
+
 ## [1.4.0] - 2026-11-16
 
 ### Added

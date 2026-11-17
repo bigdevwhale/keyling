@@ -27,7 +27,7 @@ class MainActivity : AppCompatActivity() {
         if (BuildConfig.DEMO) {
             container.scope.launch { app.keyling.data.DemoSeed.seedIfEmpty(container) }
             app.keyling.ui.Start.tab = intent.getIntExtra("tab", 0); app.keyling.ui.Start.sub = intent.getIntExtra("sub", 0)
-            app.keyling.ui.Start.resident = intent.getStringExtra("res"); app.keyling.ui.Start.shop = intent.getIntExtra("shop", 0)
+            app.keyling.ui.Start.resident = intent.getStringExtra("res"); app.keyling.ui.Start.shop = intent.getIntExtra("shop", 0); app.keyling.ui.Start.sheet = intent.getStringExtra("sheet")
         }
         val t = android.graphics.Color.TRANSPARENT
         enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(t), navigationBarStyle = SystemBarStyle.light(t, t))

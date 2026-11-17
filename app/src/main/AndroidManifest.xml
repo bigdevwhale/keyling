@@ -2,6 +2,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- The keys clattering in the background during a sprint, with the time left in a notification. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:name=".KeylingApp"
         android:allowBackup="true"
@@ -42,6 +47,11 @@
             android:authorities="${applicationId}.village"
             android:exported="true"
             tools:ignore="ExportedContentProvider" />
+
+        <service
+            android:name=".ui.SprintSound"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
 
         <!-- Persists the in-app language choice on Android 12 and older. -->
         <service

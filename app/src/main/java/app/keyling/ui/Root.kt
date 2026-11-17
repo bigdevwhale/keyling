@@ -52,7 +52,7 @@ import kotlinx.coroutines.delay
 
 /** Where to land when one screen sends you to another (a resident's key, a desk item). */
 /** Where a demo/screenshot launch opens (set from the intent in demo builds only). */
-object Start { var tab = 0; var sub = 0; var resident: String? = null; var shop = 0 }
+object Start { var tab = 0; var sub = 0; var resident: String? = null; var shop = 0; var sheet: String? = null }
 
 /** Cards that can be shared from one place: their tab names and how to draw each. */
 class Shareable(val options: List<Pair<String, () -> Card>>)
@@ -66,7 +66,7 @@ fun Root(s: Settings) {
     val entries by c.dao.entries().collectAsState(initial = emptyList())
     val caught by c.dao.caught().collectAsState(initial = emptyList())
     val stats = remember(books, entries, caught, s) { Stats(books, entries, caught, s, c.today()) }
-    val nav = remember { Nav().apply { tab = Start.tab; resident = Start.resident } }
+    val nav = remember { Nav().apply { tab = Start.tab; resident = Start.resident; homeSheet = Start.sheet; Start.sheet = null } }
     Click.sw = s.sw
     var note by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) { c.news.collect { note = it; delay(2600); note = null } }

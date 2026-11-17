@@ -36,6 +36,9 @@ data class Settings(
     val sprintEnds: Long = 0,            // when it ends, epoch ms; 0 = no sprint
     val sprintMin: Int = 0,
     val sprintGhost: Int = 0,            // the ghost's words per minute ×10
+    val sprintFrom: Int = 0,             // words in the file when the sprint began; 0 = count what is written
+    val lastFile: Int = 0,               // words in the file at the end of the last sprint, offered as the next start
+    val sprintSound: Boolean = false,    // keys clatter in the background during a sprint
 ) {
     fun json(): JSONObject = JSONObject().apply {
         put("theme", theme); put("unit", unit); put("norm", norm); put("yearGoal", yearGoal); put("book", book); put("pet", pet)
@@ -43,6 +46,7 @@ data class Settings(
         put("coins", coins); put("owned", JSONArray(owned.toList())); put("claimed", JSONArray(claimed.toList())); put("pets", pets)
         put("bestSprint", bestSprint); put("ghostWins", ghostWins); put("sprints", sprints); put("onboarded", onboarded); put("movedHint", movedHint)
         put("sprintEnds", sprintEnds); put("sprintMin", sprintMin); put("sprintGhost", sprintGhost)
+        put("sprintFrom", sprintFrom); put("lastFile", lastFile); put("sprintSound", sprintSound)
         put("pos", JSONObject().apply { pos.forEach { (k, v) -> put(k, JSONArray(listOf(v.first, v.second))) } })
     }
 
@@ -56,7 +60,8 @@ data class Settings(
                 j.optInt("coins", d.coins), set("owned"), set("claimed"), j.optInt("pets"), j.optInt("bestSprint"), j.optInt("ghostWins"), j.optInt("sprints"),
                 j.optBoolean("onboarded"),
                 j.optJSONObject("pos")?.let { o -> o.keys().asSequence().associateWith { k -> o.getJSONArray(k).let { it.getInt(0) to it.getInt(1) } } } ?: emptyMap(),
-                j.optBoolean("movedHint"), j.optLong("sprintEnds"), j.optInt("sprintMin"), j.optInt("sprintGhost"))
+                j.optBoolean("movedHint"), j.optLong("sprintEnds"), j.optInt("sprintMin"), j.optInt("sprintGhost"),
+                j.optInt("sprintFrom"), j.optInt("lastFile"), j.optBoolean("sprintSound"))
         }
     }
 }

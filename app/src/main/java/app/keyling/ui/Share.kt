@@ -177,11 +177,16 @@ object Share {
         val b = st.books.firstOrNull { it.id == s.book } ?: st.books.first(); val w = st.bookWords(b); val pct = (w * 100 / b.goal.coerceAtLeast(1)).coerceAtMost(100)
         c.kicker(f, tr("Я пишу книгу", "I'm writing a book"), 0xFFF0D0B0.toInt())
         c.text("«${b.title}»", 80f, 290f, 84f, f.loraI, 0xFFFFFFFF.toInt())
-        c.text(tr("${fmt(w)} из ${fmt(b.goal)} слов", "${fmt(w)} of ${fmt(b.goal)} words"), 84f, 370f, 44f, f.inter, 0xFFE0C8B0.toInt())
-        val bar = RectF(80f, 420f, W - 80f, 470f)
-        c.drawRoundRect(bar, 25f, 25f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x33FFFFFF })
-        c.drawRoundRect(RectF(bar.left, bar.top, bar.left + bar.width() * pct / 100f, bar.bottom), 25f, 25f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFFB866.toInt() })
-        c.text("$pct%", 80f, 540f, 40f, f.interB, 0xFFFFD8A8.toInt())
+        if (b.goal > 0) {
+            c.text(tr("${fmt(w)} из ${fmt(b.goal)} слов", "${fmt(w)} of ${fmt(b.goal)} words"), 84f, 370f, 44f, f.inter, 0xFFE0C8B0.toInt())
+            val bar = RectF(80f, 420f, W - 80f, 470f)
+            c.drawRoundRect(bar, 25f, 25f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x33FFFFFF })
+            c.drawRoundRect(RectF(bar.left, bar.top, bar.left + bar.width() * pct / 100f, bar.bottom), 25f, 25f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFFB866.toInt() })
+            c.text("$pct%", 80f, 540f, 40f, f.interB, 0xFFFFD8A8.toInt())
+        } else {
+            c.text(tr("${fmt(w)} слов", "${fmt(w)} words"), 80f, 460f, 96f, f.interB, 0xFFFFD8A8.toInt())
+            c.text(tr("+${fmt(st.bookWeek(b))} за неделю", "+${fmt(st.bookWeek(b))} this week"), 84f, 540f, 40f, f.inter, 0xFFE0C8B0.toInt())
+        }
         val chars = (w * CHARS_PER_WORD).toInt()
         c.facts(f, listOf(String.format("%.1f", chars.toFloat() / SHEET) to tr("авторских листов", "author's sheets"), fmt(chars / 1800) to tr("страниц", "pages"), "${st.bookChapters(b)}" to tr("глав", "chapters")), 660f, 0xFFC8A890.toInt())
         app.keyling.domain.CLASSICS.lastOrNull { it.third <= w }?.let { (r, e, _) -> c.text(tr("Уже длиннее, чем $r", "Already longer than $e"), 80f, 830f, 38f, f.loraI, 0xFFFFD8A8.toInt()) }

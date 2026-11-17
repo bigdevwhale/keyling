@@ -117,7 +117,9 @@ fun HomeScreen(st: Stats, s: Settings, nav: Nav) {
     var sheet by remember { mutableStateOf<String?>(null) }   // write · edit · sprint · sprintEnd · book · log
     // the sprint lives in settings, not here: leaving the screen or the app must not lose it
     val sprint = if (s.sprintEnds > 0) Sprint(s.sprintMin, s.sprintEnds, s.sprintGhost) else null
-    fun endSprint() = c.write { settings.update { it.copy(sprintEnds = 0) } }
+    fun endSprint() { app.keyling.ui.SprintSound.stop(c.app); c.write { settings.update { it.copy(sprintEnds = 0, sprintFrom = 0) } } }
+    val notifyAsk = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { }
+    fun askNotify() { if (android.os.Build.VERSION.SDK_INT >= 33) notifyAsk.launch(android.Manifest.permission.POST_NOTIFICATIONS) }
     val persona = PERSONAS.getValue(s.pet)
     fun say(text: String) { bubble = text; bubbleAt = System.currentTimeMillis() }
 
@@ -153,6 +155,8 @@ fun HomeScreen(st: Stats, s: Settings, nav: Nav) {
         nav.homeSheet = null }
     LaunchedEffect(bubbleAt) { if (bubble != null) { delay(3200); bubble = null } }
     LaunchedEffect(s.sprintEnds) { val sp = sprint ?: return@LaunchedEffect
+        // the background typing comes back if Android stopped it while the sprint was still on
+        if (s.sprintSound && System.currentTimeMillis() < sp.endsAt) app.keyling.ui.SprintSound.start(c.app, sp.endsAt, s.sw)
         // `now` is read by the timer text, so every update recomposes it (tick only redraws the canvas)
         while (System.currentTimeMillis() < sp.endsAt) { delay(500); now = System.currentTimeMillis() }
         // ended while we were away: just ask how it went, without the click
@@ -215,11 +219,19 @@ fun HomeScreen(st: Stats, s: Settings, nav: Nav) {
             Column(Modifier.weight(1f)) {
                 Text(book?.title ?: tr("Новая книга", "New book"), style = T.bookTitle, color = p.ink, maxLines = 1)
                 val ch = book?.let { st.bookChapters(it) } ?: 0
-                Text((if (ch > 0) tr("гл. ${ch + 1} · ", "ch. ${ch + 1} · ") else "") + "${fmt(bookWords)} ${tr("из", "of")} ${fmt(book?.goal ?: 0)} ${tr("слов", "words")}", style = T.small, color = p.mute)
-                Spacer(Modifier.height(7.dp))
-                Bar(bookWords.toFloat() / max(1, book?.goal ?: 1), Modifier.width(190.dp), height = 5.dp)
+                val goal = book?.goal ?: 0
+                if (goal > 0) {
+                    Text((if (ch > 0) tr("гл. ${ch + 1} · ", "ch. ${ch + 1} · ") else "") + "${fmt(bookWords)} ${tr("из", "of")} ${fmt(goal)} ${tr("слов", "words")}", style = T.small, color = p.mute)
+                    Spacer(Modifier.height(7.dp))
+                    Bar(bookWords.toFloat() / max(1, goal), Modifier.width(190.dp), height = 5.dp)
+                } else {
+                    // no goal: the total, and how it grew
+                    Text(app.keyling.domain.words(bookWords) + tr(" в книге", " in the book"), style = T.bodyB, color = p.ink)
+                    val week = book?.let { st.bookWeek(it) } ?: 0
+                    Text((if (ch > 0) tr("гл. ${ch + 1} · ", "ch. ${ch + 1} · ") else "") + (if (week > 0) tr("+${fmt(week)} за неделю", "+${fmt(week)} this week") else tr("за неделю пока ничего", "nothing yet this week")), style = T.small, color = p.mute)
+                }
             }
-            Ring(st.todayWords, s.norm)
+            Box(Modifier.clip(androidx.compose.foundation.shape.CircleShape).clickable { sheet = "norm" }) { Ring(st.todayWords, s.norm) }
         }
         sprint?.let { sp -> val left = max(0L, sp.endsAt - max(now, System.currentTimeMillis())) / 1000
             val el = sp.minutes * 60 - left; val ghost = (sp.ghostWpm10 * el / 600f).roundToInt()
@@ -238,9 +250,11 @@ fun HomeScreen(st: Stats, s: Settings, nav: Nav) {
 
     when (sheet) {
         "write", "edit" -> WriteSheet(st, s, if (sheet == "edit") 2 else 0, chapterPre, onLog = { sheet = "log"; chapterPre = false }, onClose = { sheet = null; chapterPre = false }) { n, line -> scene.dust = false; if (n > 0) scene.drop((n / 40).coerceIn(3, 14)); say(line) }
-        "sprint" -> SprintStart(s, onClose = { sheet = null }) { m -> val ends = System.currentTimeMillis() + m * 60_000L; val ghost = max(s.bestSprint, 150)
-            c.write { settings.update { it.copy(sprintEnds = ends, sprintMin = m, sprintGhost = ghost) } }; sheet = null
+        "sprint" -> SprintStart(s, onClose = { sheet = null }) { m, from, loud -> val ends = System.currentTimeMillis() + m * 60_000L; val ghost = max(s.bestSprint, 150)
+            c.write { settings.update { it.copy(sprintEnds = ends, sprintMin = m, sprintGhost = ghost, sprintFrom = from, sprintSound = loud) } }; sheet = null
+            if (loud) { if (!app.keyling.ui.SprintSound.canNotify(c.app)) askNotify(); app.keyling.ui.SprintSound.start(c.app, ends, s.sw) }
             say(PERSONAS.getValue("caps").line(0)) }
+        "norm" -> NormSheet(s) { sheet = null }
         "sprintEnd" -> SprintEnd(s, sprint, onClose = { sheet = null
             // closing the sheet mid-sprint keeps the sprint going; once it's over, closing drops it
             if (sprint != null && System.currentTimeMillis() >= sprint.endsAt) endSprint() }) { line -> say(line); scene.drop(10) }

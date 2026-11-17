@@ -192,12 +192,17 @@ private fun Books(st: Stats, s: Settings, onLog: () -> Unit, onEdit: () -> Unit)
     Sec(tr("Сейчас пишется", "Writing now"))
     Card(onClick = onEdit) { Column {
         Text(book.title, style = T.bookTitle, color = p.ink); Text(statusName(book.status), style = T.small, color = p.mute)
-        Gap(10.dp); Bar(w.toFloat() / book.goal, height = 10.dp); Gap(6.dp)
-        Text("${fmt(w)} ${tr("из", "of")} ${fmt(book.goal)} ${tr("слов", "words")}", style = T.small, color = p.mute)
+        if (book.goal > 0) {
+            Gap(10.dp); Bar(w.toFloat() / book.goal, height = 10.dp); Gap(6.dp)
+            Text("${fmt(w)} ${tr("из", "of")} ${fmt(book.goal)} ${tr("слов", "words")}", style = T.small, color = p.mute)
+        } else {
+            Gap(10.dp); Text(words(w), style = T.num, color = p.ink)
+            Text(tr("без цели · +${fmt(st.bookWeek(book))} за неделю", "no goal · +${fmt(st.bookWeek(book))} this week"), style = T.small, color = p.mute)
+        }
         Gap(12.dp)
         val per = max(1, st.avgPerDay); val left = max(0, book.goal - w); val finish = st.today + (left + per - 1) / per
         for (row in listOf(listOf(String.format("%.1f", chars.toFloat() / SHEET) to tr("авторских листов", "author's sheets"), fmt(chars / PAGE) to tr("страниц", "pages"), "${st.bookChapters(book)}" to tr("глав", "chapters")),
-            listOf("${st.bookDays(book)}" to tr("дней в работе", "days of work"), "${st.bookEdit(book) / 60} " + tr("ч", "h") to tr("правки", "of editing"), (if (left == 0) "✓" else fmtDay(finish)) to tr("прогноз финиша", "forecast finish")))) {
+            listOf("${st.bookDays(book)}" to tr("дней в работе", "days of work"), "${st.bookEdit(book) / 60} " + tr("ч", "h") to tr("правки", "of editing"), (if (book.goal == 0) "+" + fmt(st.bookWeek(book)) else if (left == 0) "✓" else fmtDay(finish)) to (if (book.goal == 0) tr("за неделю", "this week") else tr("прогноз финиша", "forecast finish"))))) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { for ((v, l) in row) Column(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(p.surface2).padding(10.dp)) { Text(v, style = T.bodyB, color = p.ink); Text(l, style = T.tiny, color = p.mute) } }
             Gap(8.dp) }
     } }
@@ -212,7 +217,7 @@ private fun Books(st: Stats, s: Settings, onLog: () -> Unit, onEdit: () -> Unit)
             Box(Modifier.size(34.dp, 46.dp).clip(RoundedCornerShape(topStart = 3.dp, bottomStart = 3.dp, topEnd = 6.dp, bottomEnd = 6.dp)).background(COVERS[b.color % COVERS.size]))
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) { Text(b.title, style = T.bodyB, color = p.ink); Text(statusName(b.status) + " · " + words(st.bookWords(b)) + (if (b.drafts > 1) tr(" · ${b.drafts}-я редакция", " · draft ${b.drafts}") else ""), style = T.small, color = p.mute)
-                Gap(5.dp); Bar(st.bookWords(b).toFloat() / b.goal, height = 4.dp) }
+                if (b.goal > 0) { Gap(5.dp); Bar(st.bookWords(b).toFloat() / b.goal, height = 4.dp) } }
         } } } }
     Sec(tr("Уже длиннее, чем…", "Already longer than…"))
     Card(pad = 12.dp) { Column { CLASSICS.forEachIndexed { i, (ru, en, n) -> Row2(tr(ru, en), if (w >= n) "✓ " + fmt(n) else tr("ещё ", "") + fmt(n - w) + tr("", " to go"), last = i == CLASSICS.lastIndex) } } }

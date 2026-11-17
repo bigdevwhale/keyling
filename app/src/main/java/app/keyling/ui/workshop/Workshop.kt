@@ -30,6 +30,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -98,6 +100,8 @@ fun WorkshopScreen(st: Stats, s: Settings, nav: Nav) {
     var tab by rememberSaveable { mutableIntStateOf(app.keyling.ui.Start.shop) }
     var cat by rememberSaveable { mutableStateOf("mug") }
     var trial by remember { mutableStateOf<Trial?>(null) }
+    // a thing being dragged on the desk preview: its id and where it is now
+    var drag by remember { mutableStateOf<Pair<String, Pair<Int, Int>>?>(null) }
     var showSettings by remember { mutableStateOf(false) }
     LaunchedEffect(nav.shopCat) { nav.shopCat?.let { cat = it; tab = 0; nav.shopCat = null } }
     var custom by remember { mutableStateOf(Mug.load(ctx)) }
@@ -128,7 +132,7 @@ fun WorkshopScreen(st: Stats, s: Settings, nav: Nav) {
     var tick by remember { mutableIntStateOf(0) }
     val spK = c.art.spritesKey(decor, custom)
     val sprites by androidx.compose.runtime.produceState(c.art.peekSprites(spK) ?: emptyList(), spK) { value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { c.art.sprites(decor, custom) } }
-    scene.sprites = sprites; scene.offsets = s.pos
+    scene.sprites = sprites; scene.offsets = drag?.let { (id, o) -> s.pos + (id to o) } ?: s.pos; scene.lifted = drag?.first
     scene.pet = s.pet; scene.steam = decor.mug != "thermo"; scene.candle = decor.mascot == "candle"
     LaunchedEffect(Unit) { var last = 0L
         while (true) withFrameNanos { ns -> if (last == 0L) last = ns; val dt = (ns - last) / 1e9f
@@ -157,11 +161,31 @@ fun WorkshopScreen(st: Stats, s: Settings, nav: Nav) {
                 Gap(14.dp)
                 val y0 = if (tab == 1) 302 else 58; val h = if (tab == 1) 118 else 196
                 Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).border(1.dp, p.line, RoundedCornerShape(18.dp))) {
-                    Canvas(Modifier.fillMaxWidth().aspectRatio(Desk.W / h.toFloat())) { @Suppress("UNUSED_EXPRESSION") tick
+                    // on the desk tab the things can be held and moved, as on the desk itself
+                    Canvas(Modifier.fillMaxWidth().aspectRatio(Desk.W / h.toFloat()).then(if (tab != 0) Modifier else Modifier.pointerInput(s.pos, sprites) {
+                        var start = 0 to 0; var acc = androidx.compose.ui.geometry.Offset.Zero; var id: String? = null
+                        val k = size.width / Desk.W.toFloat()
+                        detectDragGesturesAfterLongPress(
+                            onDragStart = { o -> val x = o.x / k; val y = y0 + o.y / k
+                                scene.spriteAt(x, y)?.let { sp -> id = sp.id; start = s.pos[sp.id] ?: (0 to 0); acc = androidx.compose.ui.geometry.Offset.Zero; drag = sp.id to start; c.sound.click(s.sw) } },
+                            onDrag = { ch, d -> val i = id ?: return@detectDragGesturesAfterLongPress; ch.consume(); acc += d
+                                val sp = sprites.first { it.id == i }
+                                drag = i to Desk.clamp(sp, start.first + (acc.x / k).roundToInt(), start.second + (acc.y / k).roundToInt()) },
+                            onDragEnd = { val d = drag; if (d != null) { c.sound.click(s.sw); c.write { settings.update { it.copy(pos = it.pos + d, movedHint = true) } } }
+                                scope.launch { kotlinx.coroutines.delay(120); drag = null }; id = null },
+                            onDragCancel = { drag = null; id = null })
+                    })) { @Suppress("UNUSED_EXPRESSION") tick
                         drawImage(img, IntOffset(0, y0 * Desk.S), IntSize(frame.pw, h * Desk.S), IntOffset.Zero, IntSize(size.width.roundToInt(), size.height.roundToInt()), filterQuality = FilterQuality.None) }
                     Text(trial?.let { tr("Примерка: ", "Trying: ") + it.name } ?: if (tab == 1) tr("Ваша клавиатура", "Your keyboard") else tr("Ваш стол", "Your desk"),
                         style = T.smallB, color = if (trial != null) Color(0xFF2A1A05) else p.ink,
                         modifier = Modifier.padding(10.dp).clip(RoundedCornerShape(20.dp)).background(if (trial != null) p.warm else p.surface.copy(alpha = .9f)).padding(horizontal = 10.dp, vertical = 5.dp))
+                }
+            }
+            if (tab == 0) {
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(tr("Удерживайте вещь и тяните, чтобы поставить её куда удобно", "Hold a thing and drag it to put it where you like"), style = T.small, color = p.mute, modifier = Modifier.weight(1f))
+                    if (s.pos.isNotEmpty()) Text(tr("Вернуть на места", "Put back"), style = T.smallB, color = p.acc,
+                        modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { c.write { settings.update { it.copy(pos = emptyMap()) } } }.padding(6.dp))
                 }
             }
             when (tab) {
@@ -258,7 +282,7 @@ fun WorkshopScreen(st: Stats, s: Settings, nav: Nav) {
                 Keycap(Modifier.width(120.dp).height(46.dp), accent = ok, key = "enter", onClick = {
                     if (ok) scope.launch { if (c.buy("${t.cat}:${t.id}", t.price)) { c.settings.update { when (t.cat) {
                         "desk" -> it.copy(desk = t.id); "mug" -> it.copy(mug = t.id); "plant" -> it.copy(plant = t.id); "lamp" -> it.copy(lamp = t.id); "mascot" -> it.copy(mascot = t.id); "caps" -> it.copy(caps = t.id); else -> it } }
-                        c.news.tryEmit(tr("Куплено: ", "Bought: ") + t.name); trial = null } } }) {
+                        c.news.tryEmit(tr("Куплено: ", "Bought: ") + t.name + if (t.cat != "desk" && t.cat != "caps") tr(". Удерживайте её на столе, чтобы передвинуть", ". Hold it on the desk to move it") else ""); trial = null } } }) {
                     Row(verticalAlignment = Alignment.CenterVertically) { Text(tr("Купить", "Buy") + " · ${t.price}", style = T.bodyB, color = if (ok) p.xLeg else p.mute) } }
             }
         }
@@ -319,7 +343,9 @@ private fun SettingsSheet(s: Settings, onClose: () -> Unit) {
         Sec(tr("Дневная норма, слов", "Daily goal, words"))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Keycap(Modifier.size(48.dp), onClick = { c.write { settings.update { it.copy(norm = (it.norm - 100).coerceAtLeast(100)) } } }) { Text("−", style = T.btn, color = p.kLeg) }
-            Text(fmt(s.norm), style = T.num, color = p.ink, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
+            var normText by remember(s.norm) { mutableStateOf(s.norm.toString()) }
+            app.keyling.ui.home.NumField(normText, "800", Modifier.weight(1f).padding(horizontal = 8.dp)) { t -> normText = t
+                t.toIntOrNull()?.takeIf { it in 50..20000 }?.let { v -> c.write { settings.update { it.copy(norm = v) } } } }
             Keycap(Modifier.size(48.dp), onClick = { c.write { settings.update { it.copy(norm = (it.norm + 100).coerceAtMost(10000)) } } }) { Text("+", style = T.btn, color = p.kLeg) }
         }
         Sec(tr("Звук клавиш", "Key sounds"))

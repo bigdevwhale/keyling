@@ -11,9 +11,10 @@ import kotlin.random.Random
  * Real recorded switch sounds (tplai/kbsim, MIT): five presses and a release per switch,
  * plus space, enter and backspace for the switches that have them.
  */
-class Sound(ctx: Context) {
+class Sound(ctx: Context, media: Boolean = false) {
     private val pool = SoundPool.Builder().setMaxStreams(8)
-        .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build()).build()
+        .setAudioAttributes(AudioAttributes.Builder().setUsage(if (media) AudioAttributes.USAGE_MEDIA else AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build()).build()
     private val ids = HashMap<String, Int>()
     private val main = Handler(Looper.getMainLooper())
     @Volatile var on = true
@@ -30,6 +31,8 @@ class Sound(ctx: Context) {
         val res = ctx.resources.getIdentifier(name, "raw", ctx.packageName)
         if (res != 0) ids[name] = pool.load(ctx, res, 1)
     }
+
+    fun release() { main.removeCallbacksAndMessages(null); pool.release() }
 
     /** A keypress: the press now, the release a moment later. [key] is space · enter · backspace or null. */
     fun click(sw: String, key: String? = null) {

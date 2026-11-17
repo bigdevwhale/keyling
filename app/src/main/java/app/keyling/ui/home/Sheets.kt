@@ -150,8 +150,10 @@ fun WriteSheet(st: Stats, s: Settings, start: Int, chapterPre: Boolean = false, 
 }
 
 @Composable
-fun SprintStart(s: Settings, onClose: () -> Unit, onGo: (Int) -> Unit) {
+fun SprintStart(s: Settings, onClose: () -> Unit, onGo: (Int, Int, Boolean) -> Unit) {
     val p = K.pal; var m by remember { mutableIntStateOf(15) }
+    var from by remember { mutableStateOf(if (s.lastFile > 0) s.lastFile.toString() else "") }
+    var sound by remember { mutableStateOf(s.sprintSound) }
     Sheet(onClose) {
         Text(tr("Спринт", "Sprint"), style = T.h2, color = p.ink); Gap(6.dp)
         Text(tr("Пишите где удобно, Клавишка засечёт время. Призрак – это ваш лучший спринт: попробуйте его обогнать.",
@@ -161,7 +163,21 @@ fun SprintStart(s: Settings, onClose: () -> Unit, onGo: (Int) -> Unit) {
         Gap(10.dp)
         Text(if (s.bestSprint > 0) tr("Призрак пишет ${s.bestSprint / 10} слов в минуту – это ${s.bestSprint * m / 10} слов за $m минут.", "The ghost writes ${s.bestSprint / 10} words a minute: ${s.bestSprint * m / 10} in $m minutes.")
             else tr("Первый спринт задаст призрака.", "Your first sprint sets the ghost."), style = T.small, color = p.mute)
-        Gap(14.dp); BigButton(tr("Начать", "Start")) { onGo(m) }
+        Gap(14.dp)
+        Text(tr("Сейчас в файле, слов", "Words in the file now"), style = T.small, color = p.mute); Gap(4.dp)
+        NumField(from, "0", Modifier.fillMaxWidth()) { from = it }
+        Gap(4.dp)
+        Text(tr("Можно не заполнять. Если вписать, после спринта хватит ввести, сколько стало, – разницу Клавишка посчитает сама.",
+            "Optional. If you fill it in, after the sprint just type how many there are – Keyling works out the difference."), style = T.tiny, color = p.mute)
+        Gap(12.dp)
+        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { sound = !sound }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(tr("Стук клавиш во время спринта", "Keys clattering during the sprint"), style = T.bodyB, color = p.ink)
+                Text(tr("Играет и когда пишете в другом приложении", "Plays while you write in another app too"), style = T.small, color = p.mute)
+            }
+            KSwitch(sound) { sound = it }
+        }
+        Gap(14.dp); BigButton(tr("Начать", "Start")) { onGo(m, from.toIntOrNull()?.coerceAtLeast(0) ?: 0, sound) }
     }
 }
 
@@ -169,17 +185,49 @@ fun SprintStart(s: Settings, onClose: () -> Unit, onGo: (Int) -> Unit) {
 fun SprintEnd(s: Settings, sp: Sprint?, onClose: () -> Unit, onDone: (String) -> Unit) {
     val c = LocalContext.current.container; val p = K.pal; var text by remember { mutableStateOf("") }
     val minutes = sp?.let { max(1, ((System.currentTimeMillis() - (it.endsAt - it.minutes * 60_000L)) / 60_000L).toInt().coerceAtMost(it.minutes)) } ?: 15
+    val from = s.sprintFrom
+    val typed = text.toIntOrNull() ?: 0
+    // with a start count, the field holds the file's words now and the sprint is the difference
+    val n = if (from > 0) typed - from else typed
     Sheet(onClose) {
-        Text(tr("Сколько написано за спринт?", "How much did you write?"), style = T.h2, color = p.ink); Gap(12.dp)
-        NumField(text, tr("Слов за $minutes мин", "Words in $minutes min"), Modifier.fillMaxWidth()) { text = it }
+        Text(if (from > 0) tr("Сколько слов в файле сейчас?", "How many words in the file now?") else tr("Сколько написано за спринт?", "How much did you write?"), style = T.h2, color = p.ink); Gap(12.dp)
+        NumField(text, if (from > 0) tr("Было ${fmt(from)}", "Was ${fmt(from)}") else tr("Слов за $minutes мин", "Words in $minutes min"), Modifier.fillMaxWidth()) { text = it }
+        if (from > 0 && text.isNotEmpty()) {
+            Gap(6.dp)
+            Text(if (n > 0) tr("Написано за спринт: ${fmt(n)}", "Written in the sprint: ${fmt(n)}") else tr("Это не больше, чем было на старте (${fmt(from)})", "That's no more than at the start (${fmt(from)})"),
+                style = T.bodyB, color = if (n > 0) p.acc else p.mute)
+        }
         Gap(14.dp)
-        BigButton(tr("Готово", "Done"), enabled = (text.toIntOrNull() ?: 0) > 0) {
-            val n = text.toInt(); val wpm10 = n * 10 / minutes; val ghost = s.bestSprint * minutes / 10; val won = s.bestSprint > 0 && n > ghost
-            c.write { settings.update { it.copy(sprints = it.sprints + 1, bestSprint = max(it.bestSprint, wpm10), ghostWins = it.ghostWins + if (won) 1 else 0, sprintEnds = 0) }; addWords(n, kind = "sprint", minutes = minutes) }
+        BigButton(tr("Готово", "Done"), enabled = n > 0) {
+            val wpm10 = n * 10 / minutes; val ghost = s.bestSprint * minutes / 10; val won = s.bestSprint > 0 && n > ghost
+            c.write { settings.update { it.copy(sprints = it.sprints + 1, bestSprint = max(it.bestSprint, wpm10), ghostWins = it.ghostWins + if (won) 1 else 0, sprintEnds = 0,
+                lastFile = if (from > 0) typed else 0, sprintFrom = 0) }; addWords(n, kind = "sprint", minutes = minutes) }
+            app.keyling.ui.SprintSound.stop(c.app)
             onDone(if (won) tr("Призрак обогнан на ${n - ghost} слов! Горлан поёт.", "You beat the ghost by ${n - ghost} words! Shouter sings.") else if (s.bestSprint == 0) tr("Призрак родился. Теперь есть кого догонять.", "The ghost is born. Now there's someone to chase.")
                 else tr("Призрак был на ${ghost - n} слов впереди. В следующий раз!", "The ghost was ${ghost - n} words ahead. Next time!"))
             onClose()
         }
+    }
+}
+
+/** The daily goal: any number, or one of the usual ones. */
+@Composable
+fun NormSheet(s: Settings, onClose: () -> Unit) {
+    val c = LocalContext.current.container; val p = K.pal
+    var text by remember { mutableStateOf(s.norm.toString()) }
+    Sheet(onClose) {
+        Text(tr("Дневная норма", "Daily goal"), style = T.h2, color = p.ink); Gap(6.dp)
+        Text(tr("Сколько слов в день вы хотите писать. За выполненную норму – 20 буквиц.", "How many words a day you want to write. The goal reached brings 20 coins."), style = T.body, color = p.mute)
+        Gap(12.dp)
+        NumField(text, "800", Modifier.fillMaxWidth()) { text = it }
+        Gap(10.dp)
+        for (row in listOf(listOf(300, 500, 800), listOf(1000, 1500, 2000))) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { for (v in row) Chip(fmt(v), text == v.toString(), Modifier.weight(1f)) { text = v.toString() } }
+            Gap(8.dp)
+        }
+        Gap(6.dp)
+        val v = text.toIntOrNull() ?: 0
+        BigButton(tr("Сохранить", "Save"), enabled = v in 50..20000) { c.write { settings.update { it.copy(norm = v) }; reconcile(0, false, false) }; onClose() }
     }
 }
 
@@ -188,16 +236,27 @@ fun SprintEnd(s: Settings, sp: Sprint?, onClose: () -> Unit, onDone: (String) ->
 fun BookSheet(st: Stats, s: Settings, onClose: () -> Unit) {
     val c = LocalContext.current.container; val p = K.pal
     val book = st.books.firstOrNull { it.id == s.book } ?: st.books.firstOrNull()
-    var title by remember { mutableStateOf(book?.title ?: "") }
-    var goal by remember { mutableStateOf((book?.goal ?: 80000).toString()) }
-    var planned by remember { mutableStateOf((book?.planned ?: 0).takeIf { it > 0 }?.toString() ?: "") }
+    var title by remember(book?.id) { mutableStateOf(book?.title ?: "") }
+    var goal by remember(book?.id) { mutableStateOf((book?.goal ?: 80000).takeIf { it > 0 }?.toString() ?: "80000") }
+    var noGoal by remember(book?.id) { mutableStateOf(book?.goal == 0) }
+    var planned by remember(book?.id) { mutableStateOf((book?.planned ?: 0).takeIf { it > 0 }?.toString() ?: "") }
     var start by remember { mutableStateOf("") }
     Sheet(onClose) {
         Text(tr("Книга на столе", "The book on the desk"), style = T.h2, color = p.ink); Gap(12.dp)
         TextField1(title, tr("Название", "Title"), Modifier.fillMaxWidth()) { title = it }; Gap(8.dp)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Column(Modifier.weight(1f)) { Text(tr("Цель, слов", "Goal, words"), style = T.small, color = p.mute); Gap(4.dp); NumField(goal, "80000", Modifier.fillMaxWidth()) { goal = it } }
+            Column(Modifier.weight(1f)) { Text(tr("Цель, слов", "Goal, words"), style = T.small, color = p.mute); Gap(4.dp)
+                if (noGoal) Text(tr("без цели", "no goal"), style = T.body, color = p.mute, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(p.surface2).padding(horizontal = 14.dp, vertical = 13.dp))
+                else NumField(goal, "80000", Modifier.fillMaxWidth()) { goal = it } }
             Column(Modifier.weight(1f)) { Text(tr("Глав в плане", "Planned chapters"), style = T.small, color = p.mute); Gap(4.dp); NumField(planned, "0", Modifier.fillMaxWidth()) { planned = it } }
+        }
+        Gap(8.dp)
+        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { noGoal = !noGoal }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(tr("Без цели – просто считать слова", "No goal – just count the words"), style = T.bodyB, color = p.ink)
+                Text(tr("Вместо полосы будет видно, сколько всего написано и сколько прибавилось за неделю", "Instead of a bar you'll see the total and what the week added"), style = T.small, color = p.mute)
+            }
+            KSwitch(noGoal) { noGoal = it }
         }
         Gap(8.dp); Text(tr("Написано до Клавишки (слов) – учтётся в книге, но жителей не накормит", "Written before Keyling (words) – counts for the book, feeds nobody"), style = T.small, color = p.mute)
         Gap(4.dp); NumField(start, "0", Modifier.fillMaxWidth()) { start = it }
@@ -205,7 +264,7 @@ fun BookSheet(st: Stats, s: Settings, onClose: () -> Unit) {
         BigButton(tr("Сохранить", "Save"), enabled = title.isNotBlank()) {
             c.write {
                 val b = book ?: return@write
-                dao.update(b.copy(title = title.trim(), goal = goal.toIntOrNull()?.coerceAtLeast(1000) ?: b.goal, planned = planned.toIntOrNull() ?: 0, startWords = b.startWords + (start.toIntOrNull() ?: 0)))
+                dao.update(b.copy(title = title.trim(), goal = if (noGoal) 0 else goal.toIntOrNull()?.coerceAtLeast(1000) ?: b.goal.takeIf { it > 0 } ?: 80000, planned = planned.toIntOrNull() ?: 0, startWords = b.startWords + (start.toIntOrNull() ?: 0)))
                 reconcile(0, false, false)
             }; onClose()
         }
@@ -229,3 +288,12 @@ fun BookSheet(st: Stats, s: Settings, onClose: () -> Unit) {
 val COVERS = listOf(androidx.compose.ui.graphics.Color(0xFF2F4F8F), androidx.compose.ui.graphics.Color(0xFF3F7A6A), androidx.compose.ui.graphics.Color(0xFF7A4A8A),
     androidx.compose.ui.graphics.Color(0xFFB0583A), androidx.compose.ui.graphics.Color(0xFFC8913A), androidx.compose.ui.graphics.Color(0xFF4A5560))
 fun statusName(s: String) = when (s) { "done" -> tr("дописана", "finished"); "paused" -> tr("на паузе", "paused"); else -> tr("в работе", "in progress") }
+
+/** A switch in the app's own colours: clearly off (grey) or on (the accent). */
+@Composable
+fun KSwitch(on: Boolean, onChange: (Boolean) -> Unit) {
+    val p = K.pal
+    androidx.compose.material3.Switch(on, onChange, colors = androidx.compose.material3.SwitchDefaults.colors(
+        checkedThumbColor = androidx.compose.ui.graphics.Color.White, checkedTrackColor = p.acc,
+        uncheckedThumbColor = p.mute, uncheckedTrackColor = p.surface2, uncheckedBorderColor = p.line))
+}

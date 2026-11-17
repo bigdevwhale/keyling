@@ -54,6 +54,8 @@ class Stats(val books: List<Book>, val entries: List<Entry>, val caught: List<Ca
     }
 
     fun bookWords(b: Book) = b.startWords + entries.filter { it.bookId == b.id && it.kind in setOf("add", "sprint", "cut", "past") }.sumOf { it.words }
+    /** Words the book gained in the last seven days. */
+    fun bookWeek(b: Book) = entries.filter { it.bookId == b.id && it.day > today - 7 && it.kind in setOf("add", "sprint", "cut") }.sumOf { it.words }
     fun bookDays(b: Book) = entries.filter { it.bookId == b.id && it.words > 0 }.map { it.day }.distinct().size
     fun bookChapters(b: Book) = entries.count { it.bookId == b.id && it.chapter }
     fun bookEdit(b: Book) = entries.filter { it.bookId == b.id && it.kind == "edit" }.sumOf { it.minutes }
