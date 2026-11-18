@@ -6,6 +6,19 @@ line "<!-- tg", then 2-4 short lines in Russian for users (what is new, what is 
 then close it like any HTML comment. The release notes carry it, and the chat bot posts those lines.
 -->
 
+## [1.6.0] - 2026-11-18
+
+### Added
+- **Lingvale can move Keyling to a new phone:** the village saves the backups of all the -ling apps into one file and loads them back on another phone. It is the same .keyling file the settings make, and Keyling loads it only when you confirm it in Lingvale.
+
+### Fixed
+- **A broken file no longer empties the desk:** loading a file that says it is Keyling's but has no settings inside cleared the books before failing. Now such a file is refused and nothing is touched.
+
+<!-- tg
+Lingvale теперь умеет переносить Клавишку на новый телефон: одна копия на все приложения семейства.
+Испорченный файл копии больше не стирает книги – он просто не загрузится.
+-->
+
 ## [1.5.0] - 2026-11-17
 
 ### Added

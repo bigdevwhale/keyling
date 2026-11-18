@@ -4,10 +4,16 @@ import android.content.Context
 import android.net.Uri
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.InputStream
+import java.io.OutputStream
 
 /** Moves all progress to another phone: books, sittings, caught bugs, settings and the user's own mug, in one .keyling file. */
 object Backup {
-    suspend fun export(ctx: Context, dao: KeyDao, s: Settings, uri: Uri) {
+    suspend fun export(ctx: Context, dao: KeyDao, s: Settings, uri: Uri) =
+        ctx.contentResolver.openOutputStream(uri, "wt")!!.use { write(ctx, dao, s, it) }
+
+    /** The file itself, wherever it goes: the settings' «Save to a file» or Lingvale's copy of the whole family. */
+    suspend fun write(ctx: Context, dao: KeyDao, s: Settings, out: OutputStream) {
         val j = JSONObject()
         j.put("app", "keyling"); j.put("version", 1); j.put("settings", s.json())
         j.put("books", JSONArray(dao.bookList().map { b -> JSONObject().apply {
@@ -17,14 +23,17 @@ object Backup {
             put("bookId", e.bookId); put("day", e.day); put("at", e.at); put("kind", e.kind); put("words", e.words); put("minutes", e.minutes); put("chapter", e.chapter) } }))
         j.put("caught", JSONArray(dao.caughtList().map { c -> JSONObject().apply { put("kind", c.kind); put("at", c.at) } }))
         Mug.load(ctx)?.let { j.put("mug", JSONArray(it.toList())) }
-        ctx.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(j.toString().toByteArray()) }
+        out.write(j.toString().toByteArray())
     }
 
     /** Replaces everything with the file's contents. Returns false if it isn't a Keyling file. */
-    suspend fun import(ctx: Context, dao: KeyDao, store: SettingsStore, uri: Uri): Boolean {
-        val text = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() } ?: return false
-        val j = runCatching { JSONObject(text) }.getOrNull() ?: return false
-        if (j.optString("app") != "keyling") return false
+    suspend fun import(ctx: Context, dao: KeyDao, store: SettingsStore, uri: Uri): Boolean =
+        ctx.contentResolver.openInputStream(uri)?.use { read(ctx, dao, store, it) } ?: false
+
+    /** Replaces everything with what [input] holds. Returns false, touching nothing, if it isn't a Keyling file. */
+    suspend fun read(ctx: Context, dao: KeyDao, store: SettingsStore, input: InputStream): Boolean {
+        val j = runCatching { JSONObject(input.readBytes().decodeToString()) }.getOrNull() ?: return false
+        if (j.optString("app") != "keyling" || j.optJSONObject("settings") == null) return false
         dao.clearEntries(); dao.clearBooks(); dao.clearCaught()
         val ids = HashMap<Long, Long>()
         j.optJSONArray("books")?.let { a -> for (i in 0 until a.length()) { val b = a.getJSONObject(i)
