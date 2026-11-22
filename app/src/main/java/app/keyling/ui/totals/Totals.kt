@@ -152,9 +152,16 @@ private fun Year(st: Stats, s: Settings, onGoal: () -> Unit) {
             in 18..23 -> tr("Вы вечерний писатель. Полуночник уже присматривается.", "You're an evening writer. Night Owl is watching.")
             else -> tr("Вы ночной писатель – Полуночник доволен.", "You're a night writer – Night Owl approves.") }, style = T.small, color = p.mute)
     } }
-    Sec(tr("По дням недели, в среднем", "Average by weekday"))
-    Card { val wd = st.weekdays; val names = if (Lang.ru) listOf("пн", "вт", "ср", "чт", "пт", "сб", "вс") else listOf("Mo", "Tu", "We", "Th", "Fr", "Sa", "Su")
-        val best = wd.indices.maxByOrNull { wd[it] } ?: 0; Bars(wd.toList(), names, { it == best }, top = { fmt(wd[it]) }) }
+    // the real days of the last week, today among them (#10): the average below is easy to take for them
+    Sec(tr("Последние 7 дней", "The last 7 days"))
+    Card { val ds = (6 downTo 0).map { st.today - it }; val loc = if (Lang.ru) java.util.Locale("ru") else java.util.Locale.UK
+        val vals = ds.map { st.days[it]?.words ?: 0 }
+        Bars(vals, ds.map { d -> LocalDate.ofEpochDay(d).let { it.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT, loc).lowercase(loc).take(2) + " " + it.dayOfMonth } },
+            { it == 6 }, top = { fmt(vals[it]) }) }
+    Sec(tr("В среднем по дням недели", "Average by weekday"))
+    Card { Column { val wd = st.weekdays; val names = if (Lang.ru) listOf("пн", "вт", "ср", "чт", "пт", "сб", "вс") else listOf("Mo", "Tu", "We", "Th", "Fr", "Sa", "Su")
+        val best = wd.indices.maxByOrNull { wd[it] } ?: 0; Bars(wd.toList(), names, { it == best }, top = { fmt(wd[it]) })
+        Text(tr("Среднее за все недели: например, все четверги, когда вы писали.", "Over all weeks: every Thursday you wrote, say."), style = T.small, color = p.mute, modifier = Modifier.padding(top = 8.dp)) } }
     Sec(tr("Всего за год", "This year"))
     val items = listOf(fmt(st.yearTotal) to tr("слов", "words"), String.format("%.1f", st.yearTotal * CHARS_PER_WORD / SHEET) to tr("авторских листов", "author's sheets"),
         "${st.activeDays}" to tr("дней с письмом", "writing days"), fmt(st.avgPerDay) to tr("слов в день письма", "words per writing day"),

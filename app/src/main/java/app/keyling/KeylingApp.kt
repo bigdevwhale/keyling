@@ -72,6 +72,16 @@ class AppContainer(context: Context) {
         return reconcile(coins, normHit, chapter)
     }
 
+    /**
+     * Words written on an earlier [day] that weren't logged then (#9): they count for that day – its streak, calendar
+     * and charts – but pay no coins, so the past can't be farmed.
+     */
+    suspend fun addOnDay(day: Long, n: Int): Reward {
+        val at = LocalDate.ofEpochDay(day).atTime(12, 0).atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        dao.insert(Entry(bookId = currentBook(), day = day, at = at, kind = "add", words = n))
+        return reconcile(0, false, false)
+    }
+
     suspend fun setTotal(total: Int): Int {
         val book = currentBook(); val st = stats(); val b = st.books.first { it.id == book }
         val delta = total - st.bookWords(b)

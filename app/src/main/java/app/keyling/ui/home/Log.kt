@@ -62,12 +62,16 @@ fun LogSheet(st: Stats, onClose: () -> Unit) {
     val p = K.pal
     var shown by remember { mutableIntStateOf(40) }
     var open by remember { mutableStateOf<Entry?>(null) }
+    var past by remember { mutableStateOf(false) }
     Sheet(onClose) {
         val e = open
         if (e != null) EntryEdit(st, e) { open = null }
+        else if (past) PastDay(st) { past = false }
         else {
             Text(tr("Мои записи", "My log"), style = T.h2, color = p.ink); Gap(4.dp)
             Text(tr("Нажмите на запись, чтобы исправить число или удалить её.", "Tap a sitting to fix its number or delete it."), style = T.small, color = p.mute)
+            // forgot to log a day? it can be added afterwards (#9)
+            Gap(10.dp); Chip("+ " + tr("Запись за прошлый день", "Log an earlier day"), false, Modifier.fillMaxWidth()) { past = true }
             val list = st.entries.sortedByDescending { it.at }
             val titles = st.books.associate { it.id to it.title }; val manyBooks = list.map { it.bookId }.distinct().size > 1
             if (list.isEmpty()) { Gap(16.dp); Text(tr("Пока ни одной записи. Нажмите «Записать» на столе.", "Nothing logged yet. Tap «Log words» on the desk."), style = T.body, color = p.mute) }
@@ -85,6 +89,51 @@ fun LogSheet(st: Stats, onClose: () -> Unit) {
             }
             if (list.size > shown) { Gap(10.dp); Chip(tr("Показать ещё", "Show more"), false, Modifier.fillMaxWidth()) { shown += 40 } }
         }
+    }
+}
+
+/** Words for an earlier day that went unlogged (#9): the day, then the number. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun PastDay(st: Stats, onBack: () -> Unit) {
+    val c = LocalContext.current.container; val p = K.pal
+    var day by remember { mutableStateOf(st.today - 1) }
+    var text by remember { mutableStateOf("") }
+    var picking by remember { mutableStateOf(false) }
+    val n = text.toIntOrNull() ?: 0
+    val loc = if (app.keyling.domain.Lang.ru) java.util.Locale("ru") else java.util.Locale.UK
+    fun short(d: Long) = LocalDate.ofEpochDay(d).let { it.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT, loc).lowercase(loc).take(2) + " " + it.dayOfMonth }
+
+    Text("‹ " + tr("Все записи", "All sittings"), style = T.smallB, color = p.acc, modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onBack).padding(vertical = 6.dp))
+    Gap(6.dp)
+    Text(tr("Запись за прошлый день", "Log an earlier day"), style = T.h2, color = p.ink)
+    Text(dayLabel(day, st.today) + (st.days[day]?.words?.takeIf { it > 0 }?.let { tr(" · уже записано ", " · already logged ") + words(it) } ?: ""), style = T.small, color = p.mute)
+    Gap(12.dp)
+    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp)) {
+        for (i in 1..6) { val d = st.today - i; Chip(if (i == 1) tr("Вчера", "Yesterday") else short(d), day == d) { day = d } }
+        val other = day < st.today - 6
+        Chip(if (other) fmtDay(day) else tr("Другой день…", "Another day…"), other) { picking = true }
+    }
+    Gap(14.dp)
+    Text(tr("Слов", "Words"), style = T.small, color = p.mute)
+    Gap(4.dp); NumField(text, "0", Modifier.fillMaxWidth()) { text = it }; Gap(10.dp)
+    Text(tr("Слова засчитаются в тот день – в серию, календарь и графики. Буквицы за прошлые дни не начисляются.", "The words count for that day – the streak, the calendar and the charts. Earlier days pay no coins."),
+        style = T.small, color = p.mute, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(p.surface2).padding(12.dp))
+    Gap(14.dp)
+    BigButton(tr("Записать", "Log"), enabled = n > 0) { c.write { addOnDay(day, n) }; onBack() }
+    Spacer(Modifier.height(4.dp))
+    if (picking) {
+        val zone = java.time.ZoneOffset.UTC
+        val state = androidx.compose.material3.rememberDatePickerState(
+            initialSelectedDateMillis = LocalDate.ofEpochDay(day).atStartOfDay(zone).toInstant().toEpochMilli(),
+            selectableDates = object : androidx.compose.material3.SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long) = utcTimeMillis / 86_400_000L < st.today
+            })
+        androidx.compose.material3.DatePickerDialog(
+            onDismissRequest = { picking = false },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { state.selectedDateMillis?.let { day = it / 86_400_000L }; picking = false }) { Text(tr("Выбрать", "Pick")) } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { picking = false }) { Text(tr("Отмена", "Cancel")) } },
+        ) { androidx.compose.material3.DatePicker(state) }
     }
 }
 

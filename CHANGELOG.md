@@ -6,6 +6,21 @@ line "<!-- tg", then 2-4 short lines in Russian for users (what is new, what is 
 then close it like any HTML comment. The release notes carry it, and the chat bot posts those lines.
 -->
 
+## [1.7.0] - 2026-11-22
+
+### Added
+- **An earlier day can be logged (#9):** «+ Log an earlier day» in «My log» – one of the last six days or any date from the calendar, and the words. They count for that day – the streak, the calendar and the charts – but pay no coins.
+- **The last 7 days (#10):** in «Totals», a chart of the real days of the past week with their numbers, today among them.
+
+### Changed
+- The weekday chart says it's an average over all weeks (#10): its Thursday is every Thursday you wrote, not last Thursday.
+
+<!-- tg
+В «Моих записях» можно добавить слова за прошлый день – они попадут в серию и графики
+В «Итогах» появился график последних 7 дней с настоящими числами по дням
+График по дням недели теперь подписан как среднее за все недели
+-->
+
 ## [1.6.0] - 2026-11-18
 
 ### Added
